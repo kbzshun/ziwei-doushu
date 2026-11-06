@@ -580,7 +580,44 @@ export default function InsightPanel({ insight, chart, onExport, onReset, export
   const [historyOpen, setHistoryOpen] = useState(false);
   const [pro, setProState] = useState(false);
   const [upsell, setUpsell] = useState<string | null>(null);
-  useEffect(() => { setProState(isPro()); }, []);
+  const [codeInput, setCodeInput] = useState('');
+  const [codeMsg, setCodeMsg] = useState('');
+  const [codeBusy, setCodeBusy] = useState(false);
+
+  // 权限由服务端下发：GitHub 白名单 或 已核销的兑换码
+  useEffect(() => {
+    fetch('/api/auth/me', { cache: 'no-store' })
+      .then(r => r.json())
+      .then((d: { pro?: boolean }) => setProState(!!d.pro))
+      .catch(() => setProState(isPro()));
+  }, []);
+
+  const submitCode = async () => {
+    const code = codeInput.trim();
+    if (!code || codeBusy) return;
+    setCodeBusy(true);
+    setCodeMsg('');
+    try {
+      const res = await fetch('/api/redeem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string };
+      if (data.ok) {
+        setProState(true);
+        setUpsell(null);
+        setCodeInput('');
+        location.reload();
+      } else {
+        setCodeMsg(data.error ?? '核销失败，请稍后重试');
+      }
+    } catch {
+      setCodeMsg('网络异常，请稍后重试');
+    } finally {
+      setCodeBusy(false);
+    }
+  };
 
   const gate = (key: string, action: () => void) => {
     if (isFreeKey(key) || pro) { action(); return; }
@@ -888,15 +925,29 @@ export default function InsightPanel({ insight, chart, onExport, onReset, export
               感情、十二宫位、运限（大限/流年/流月/流日/流时）与四化解读为专业版功能。
               免费可查看：排盘、命格总览、财运、事业、性格、健康。
             </p>
-            <div className="mb-4 rounded-lg p-3 text-[10.5px] leading-5"
-              style={{ background: 'var(--glass-bg-2)', border: '1px solid var(--bdr)', color: 'var(--tx-3)' }}>
-              接入说明：需先用 GitHub 账号登录，再由服务端校验订阅状态后签发权限。
-              当前为本地演示，尚未接入真实计费。
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/redeem-qr.png" alt="微信收款码"
+              className="mx-auto mb-3 w-44 rounded-lg"
+              style={{ border: '1px solid var(--bdr)' }} />
+            <p className="mb-3 text-[10.5px] leading-5" style={{ color: 'var(--tx-3)' }}>
+              微信扫码付款后，把兑换码填在下面即可解锁（同一浏览器有效期 90 天）。
+              还没有兑换码？付款时在备注里写上「要兑换码」，作者会发给你。
+            </p>
+            <input
+              value={codeInput}
+              onChange={e => setCodeInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && submitCode()}
+              placeholder="输入兑换码，如 ZW-7K3F9"
+              className="input-base mb-2 !py-2 !text-[12px]"
+            />
+            {codeMsg && (
+              <p className="mb-2 text-[10px]" style={{ color: 'var(--ji)' }}>{codeMsg}</p>
+            )}
             <div className="flex gap-2">
-              <a href="/api/auth/login" className="btn-accent flex-1 !py-2 !text-center !text-[12px]">
-                用 GitHub 登录
-              </a>
+              <button type="button" className="btn-accent flex-1 !py-2 !text-[12px]"
+                disabled={codeBusy} onClick={submitCode}>
+                {codeBusy ? '核销中…' : '解锁'}
+              </button>
               <button type="button" className="btn-glass !py-2 !text-[12px]"
                 onClick={() => setUpsell(null)}>
                 稍后

@@ -48,3 +48,26 @@ export function isProUser(login?: string | null): boolean {
     .filter(Boolean);
   return list.includes(login.toLowerCase());
 }
+
+/* ─── 兑换码解锁凭证（无账号方案）─────────────────────────
+   用户输入兑换码核销成功后，签发一个 90 天的签名 Cookie。
+   换设备/清缓存需重新输入兑换码，这是无账号体系的固有代价。
+   ──────────────────────────────────────────────────────── */
+
+export const REDEEM_COOKIE = 'ziwei_redeem';
+
+export function createRedeemToken(code: string): string {
+  const body = Buffer.from(JSON.stringify({ code, iat: Date.now() })).toString('base64url');
+  return `${body}.${sign(body)}`;
+}
+
+export function readRedeemToken(token?: string | null): { code: string; iat: number } | null {
+  if (!token) return null;
+  const [body, mac] = token.split('.');
+  if (!body || !mac || sign(body) !== mac) return null;
+  try {
+    return JSON.parse(Buffer.from(body, 'base64url').toString('utf-8'));
+  } catch {
+    return null;
+  }
+}

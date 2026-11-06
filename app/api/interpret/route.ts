@@ -4,7 +4,7 @@
  * 响应: SSE，data: {"delta":{"text":"..."}} ... data: [DONE]
  */
 import { NextRequest } from 'next/server';
-import { SESSION_COOKIE, readSession, isProUser } from '@/lib/auth';
+import { SESSION_COOKIE, REDEEM_COOKIE, readSession, readRedeemToken, isProUser } from '@/lib/auth';
 import { isFreeKey } from '@/lib/entitlements';
 import { streamChatToProjectSSE, ChatMessage } from '@/lib/ai/llm';
 
@@ -38,10 +38,8 @@ export async function POST(req: NextRequest) {
   // 服务端权限校验：免费主题放行，其余必须是已登录的专业版用户
   if (feature && !isFreeKey(feature)) {
     const user = readSession(req.cookies.get(SESSION_COOKIE)?.value);
-    if (!user) {
-      return Response.json({ error: 'login-required' }, { status: 401 });
-    }
-    if (!isProUser(user.login)) {
+    const redeem = readRedeemToken(req.cookies.get(REDEEM_COOKIE)?.value);
+    if (!isProUser(user?.login) && !redeem) {
       return Response.json({ error: 'pro-required' }, { status: 403 });
     }
   }
