@@ -97,7 +97,7 @@ export async function streamChatToProjectSSE(messages: ChatMessage[]): Promise<R
 
   if (!apiKey || apiKey.startsWith('your-')) {
     const hint =
-      '未配置 API Key：请在 .env.local 中填写 DEEPSEEK_API_KEY（DeepSeek 开放平台 https://platform.deepseek.com 申请），保存后重启 npm run dev。排盘功能不受影响。';
+      '未配置 API Key：请在 .env.local 中填写 DEEPSEEK_API_KEY（DeepSeek 开放平台 https://platform.deepseek.com 申请），并重启；线上部署则需在平台（Netlify/Vercel）的环境变量里添加后重新部署。排盘功能不受影响。';
     const stream = new ReadableStream({
       start(controller) {
         sse((c) => controller.enqueue(c), hint);
