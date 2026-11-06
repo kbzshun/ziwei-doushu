@@ -15,6 +15,7 @@ import {
   type AnalysisRecord,
 } from '@/lib/history';
 import AnalysisHistory, { AnalysisRecordView } from './AnalysisHistory';
+import { isFreeKey, isPro, setPro } from '@/lib/entitlements';
 
 /* ══════════════════════════════════════════════════════════
    交互模型：一个主题 = 一节内容（section）
@@ -323,9 +324,11 @@ export function useInsight(
       const res = await fetch('/api/interpret', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chart: chartRef.current, messages: apiMessages }),
+        body: JSON.stringify({ chart: chartRef.current, messages: apiMessages, feature: key }),
       });
       if (res.status === 404) throw new Error('api-missing');
+      if (res.status === 401) throw new Error('login-required');
+      if (res.status === 403) throw new Error('pro-required');
       if (!res.ok) throw new Error(`请求失败（${res.status}）`);
       if (!res.body) throw new Error('无响应流');
 
@@ -382,7 +385,11 @@ export function useInsight(
       const msg = e instanceof Error ? e.message : '未知错误';
       const text = msg === 'api-missing'
         ? '未找到 /api/interpret 接口，请确认已配置 DeepSeek Key 且服务正常启动。'
-        : `解读失败：${msg}`;
+        : msg === 'login-required'
+          ? '该功能需要先用 GitHub 账号登录。'
+          : msg === 'pro-required'
+            ? '该功能属于专业版，请登录后在账户菜单里升级专业版。'
+            : `解读失败：${msg}`;
       finishSection(key, { loading: false, error: text }, text);
     }
   }, [finishSection, writeStreamingText]);
@@ -571,6 +578,14 @@ export default function InsightPanel({ insight, chart, onExport, onReset, export
   const [input, setInput] = useState('');
   const [mode, setMode] = useState<'analysis' | 'chat'>('analysis');
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [pro, setProState] = useState(false);
+  const [upsell, setUpsell] = useState<string | null>(null);
+  useEffect(() => { setProState(isPro()); }, []);
+
+  const gate = (key: string, action: () => void) => {
+    if (isFreeKey(key) || pro) { action(); return; }
+    setUpsell(key);
+  };
   const [historyItems, setHistoryItems] = useState<AnalysisRecord[]>([]);
   const [viewingRecord, setViewingRecord] = useState<AnalysisRecord | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -688,7 +703,7 @@ export default function InsightPanel({ insight, chart, onExport, onReset, export
                 <button
                   key={topic.key}
                   type="button"
-                  onClick={() => openTopic(topic.key)}
+                  onClick={() => gate(topic.key, () => openTopic(topic.key))}
                   className="relative rounded-lg py-1.5 text-[11px] font-medium transition-all duration-150"
                   style={{
                     background: isActive ? 'var(--ac-bg)' : 'transparent',
@@ -718,7 +733,7 @@ export default function InsightPanel({ insight, chart, onExport, onReset, export
                   key={tab.name}
                   type="button"
                   disabled={!palace}
-                  onClick={() => palace && openPalace(palace)}
+                  onClick={() => palace && gate(`palace:${palace.branch}`, () => openPalace(palace))}
                   className="relative rounded-full px-2.5 py-1 text-[10px] transition-colors disabled:opacity-40"
                   style={{
                     background: isActive ? 'var(--ac-bg)' : 'var(--glass-bg-2)',
@@ -740,7 +755,7 @@ export default function InsightPanel({ insight, chart, onExport, onReset, export
                 <button
                   key={sec.key}
                   type="button"
-                  onClick={() => setActiveKey(sec.key)}
+                  onClick={() => gate(sec.key, () => setActiveKey(sec.key))}
                   className="rounded-full px-2.5 py-1 text-[10px] transition-colors"
                   style={{
                     background: isActive ? 'var(--ac-bg)' : 'var(--glass-bg-2)',
@@ -862,6 +877,34 @@ export default function InsightPanel({ insight, chart, onExport, onReset, export
           </button>
         </div>
       </div>
+
+
+      {upsell && (
+        <div className="absolute inset-0 z-40 flex items-center justify-center p-4"
+          style={{ background: 'rgba(10,14,24,0.35)', backdropFilter: 'blur(4px)' }}>
+          <div className="card-glass w-full max-w-sm p-5">
+            <div className="mb-1 text-[15px] font-semibold" style={{ color: 'var(--tx-0)' }}>升级专业版</div>
+            <p className="mb-4 text-[11.5px] leading-6" style={{ color: 'var(--tx-2)' }}>
+              感情、十二宫位、运限（大限/流年/流月/流日/流时）与四化解读为专业版功能。
+              免费可查看：排盘、命格总览、财运、事业、性格、健康。
+            </p>
+            <div className="mb-4 rounded-lg p-3 text-[10.5px] leading-5"
+              style={{ background: 'var(--glass-bg-2)', border: '1px solid var(--bdr)', color: 'var(--tx-3)' }}>
+              接入说明：需先用 GitHub 账号登录，再由服务端校验订阅状态后签发权限。
+              当前为本地演示，尚未接入真实计费。
+            </div>
+            <div className="flex gap-2">
+              <a href="/api/auth/login" className="btn-accent flex-1 !py-2 !text-center !text-[12px]">
+                用 GitHub 登录
+              </a>
+              <button type="button" className="btn-glass !py-2 !text-[12px]"
+                onClick={() => setUpsell(null)}>
+                稍后
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 历史浮层：覆盖在面板上，不改动主内容区结构 */}
       {historyOpen && (

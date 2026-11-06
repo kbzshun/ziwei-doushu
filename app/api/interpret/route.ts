@@ -4,6 +4,8 @@
  * 响应: SSE，data: {"delta":{"text":"..."}} ... data: [DONE]
  */
 import { NextRequest } from 'next/server';
+import { SESSION_COOKIE, readSession, isProUser } from '@/lib/auth';
+import { isFreeKey } from '@/lib/entitlements';
 import { streamChatToProjectSSE, ChatMessage } from '@/lib/ai/llm';
 
 export const dynamic = 'force-dynamic';
@@ -24,14 +26,25 @@ const SYSTEM_PROMPT = `你是一位精通紫微斗数的命理顾问，严格遵
 `;
 
 export async function POST(req: NextRequest) {
-  let body: { chart?: unknown; messages?: { role: string; content: string }[] };
+  let body: { chart?: unknown; messages?: { role: string; content: string }[]; feature?: string };
   try {
     body = await req.json();
   } catch {
     return Response.json({ error: 'invalid json' }, { status: 400 });
   }
 
-  const { chart, messages } = body;
+  const { chart, messages, feature } = body;
+
+  // 服务端权限校验：免费主题放行，其余必须是已登录的专业版用户
+  if (feature && !isFreeKey(feature)) {
+    const user = readSession(req.cookies.get(SESSION_COOKIE)?.value);
+    if (!user) {
+      return Response.json({ error: 'login-required' }, { status: 401 });
+    }
+    if (!isProUser(user.login)) {
+      return Response.json({ error: 'pro-required' }, { status: 403 });
+    }
+  }
   if (!chart) {
     return Response.json({ error: 'missing chart' }, { status: 400 });
   }
