@@ -1,0 +1,11 @@
+# Netlify 部署配置（Next.js App Router + Route Handlers）
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Netlify 官方 Next.js 运行时：支持 SSR、Route Handlers（/api/*）与流式响应
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
