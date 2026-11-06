@@ -4,7 +4,7 @@
   publish = ".next"
 
 [build.environment]
-  NODE_VERSION = "20"
+  NODE_VERSION = "22"
 
 # Netlify 官方 Next.js 运行时：支持 SSR、Route Handlers（/api/*）与流式响应
 [[plugins]]
