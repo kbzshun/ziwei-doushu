@@ -1,14 +1,14 @@
 /**
  * 付费框架（仅前端占位，尚未接真实计费）
  *
- * 免费：排盘 + 命格总览 / 财运 / 事业 / 性格 / 健康
- * 付费：感情、全部宫位、运限（大限/流年/流月/流日/流时）、四化
+ * 免费：排盘 + 命格总览 / 财运 / 事业 / 感情 / 性格 / 健康
+ * 付费：全部宫位、运限（大限/流年/流月/流日/流时）、四化
  *
  * 真实上线时应由服务端签发权限（例如 GitHub OAuth 登录后查询订阅状态），
  * 这里的 localStorage 只是本地演示，用户可自行篡改，不能作为收费依据。
  */
 
-export const FREE_TOPIC_KEYS = ['overview', 'wealth', 'career', 'personality', 'health'] as const;
+export const FREE_TOPIC_KEYS = ['overview', 'wealth', 'career', 'love', 'personality', 'health'] as const;
 
 export function isFreeKey(key: string): boolean {
   return (FREE_TOPIC_KEYS as readonly string[]).includes(key);

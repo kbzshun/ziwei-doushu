@@ -63,6 +63,10 @@ export interface InsightApi {
   retry: () => void;
   anyLoading: boolean;
   loadedCount: number;
+  pro: boolean;
+  /** 被拦截的付费功能 key，非空时前端显示升级弹层 */
+  upsellKey: string | null;
+  dismissUpsell: () => void;
 }
 
 const TOPICS = [
@@ -290,6 +294,19 @@ export function useInsight(
   const startedRef = useRef<Set<string>>(new Set());
   const inflightRef = useRef<Set<string>>(new Set());
 
+  /* 权限：由服务端下发（GitHub 白名单 或 已核销的兑换码） */
+  const [pro, setPro] = useState(false);
+  const proRef = useRef(false);
+  proRef.current = pro;
+  const [upsellKey, setUpsellKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/auth/me', { cache: 'no-store' })
+      .then(r => r.json())
+      .then((d: { pro?: boolean }) => setPro(!!d.pro))
+      .catch(() => { /* 离线时按未付费处理 */ });
+  }, []);
+
   const writeStreamingText = useCallback((key: string, text: string) => {
     setSections(prev => {
       const sec = prev[key];
@@ -386,9 +403,9 @@ export function useInsight(
       const text = msg === 'api-missing'
         ? '未找到 /api/interpret 接口，请确认已配置 DeepSeek Key 且服务正常启动。'
         : msg === 'login-required'
-          ? '该功能需要先用 GitHub 账号登录。'
+          ? '该功能属于专业版，请输入兑换码解锁。'
           : msg === 'pro-required'
-            ? '该功能属于专业版，请登录后在账户菜单里升级专业版。'
+            ? '该功能属于专业版，请输入兑换码解锁。'
             : `解读失败：${msg}`;
       finishSection(key, { loading: false, error: text }, text);
     }
@@ -396,6 +413,13 @@ export function useInsight(
 
   const startSection = useCallback((opts: StartOptions) => {
     const { key, label, hint, prompt, bubble, append, force } = opts;
+
+    // 所有入口（标签、盘面宫格、运限时间轴）统一在这里拦截
+    if (!isFreeKey(key) && !proRef.current) {
+      setUpsellKey(key);
+      return;
+    }
+
     const current = sectionsRef.current[key];
 
     if (!append && current && !force) return;   // 已存在：直接复用，不重复请求
@@ -559,6 +583,9 @@ export function useInsight(
     retry,
     anyLoading,
     loadedCount,
+    pro,
+    upsellKey,
+    dismissUpsell: () => setUpsellKey(null),
   };
 }
 
@@ -574,23 +601,13 @@ interface InsightPanelProps {
 }
 
 export default function InsightPanel({ insight, chart, onExport, onReset, exportHint }: InsightPanelProps) {
-  const { sections, dynamicKeys, activeKey, active, openTopic, openPalace, setActiveKey, ask, retry, anyLoading, loadedCount } = insight;
+  const { sections, dynamicKeys, activeKey, active, openTopic, openPalace, setActiveKey, ask, retry, anyLoading, loadedCount, upsellKey, dismissUpsell } = insight;
   const [input, setInput] = useState('');
   const [mode, setMode] = useState<'analysis' | 'chat'>('analysis');
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [pro, setProState] = useState(false);
-  const [upsell, setUpsell] = useState<string | null>(null);
   const [codeInput, setCodeInput] = useState('');
   const [codeMsg, setCodeMsg] = useState('');
   const [codeBusy, setCodeBusy] = useState(false);
-
-  // 权限由服务端下发：GitHub 白名单 或 已核销的兑换码
-  useEffect(() => {
-    fetch('/api/auth/me', { cache: 'no-store' })
-      .then(r => r.json())
-      .then((d: { pro?: boolean }) => setProState(!!d.pro))
-      .catch(() => setProState(isPro()));
-  }, []);
 
   const submitCode = async () => {
     const code = codeInput.trim();
@@ -605,8 +622,7 @@ export default function InsightPanel({ insight, chart, onExport, onReset, export
       });
       const data = (await res.json()) as { ok?: boolean; error?: string };
       if (data.ok) {
-        setProState(true);
-        setUpsell(null);
+        dismissUpsell();
         setCodeInput('');
         location.reload();
       } else {
@@ -619,10 +635,6 @@ export default function InsightPanel({ insight, chart, onExport, onReset, export
     }
   };
 
-  const gate = (key: string, action: () => void) => {
-    if (isFreeKey(key) || pro) { action(); return; }
-    setUpsell(key);
-  };
   const [historyItems, setHistoryItems] = useState<AnalysisRecord[]>([]);
   const [viewingRecord, setViewingRecord] = useState<AnalysisRecord | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -740,7 +752,7 @@ export default function InsightPanel({ insight, chart, onExport, onReset, export
                 <button
                   key={topic.key}
                   type="button"
-                  onClick={() => gate(topic.key, () => openTopic(topic.key))}
+                  onClick={() => openTopic(topic.key)}
                   className="relative rounded-lg py-1.5 text-[11px] font-medium transition-all duration-150"
                   style={{
                     background: isActive ? 'var(--ac-bg)' : 'transparent',
@@ -770,7 +782,7 @@ export default function InsightPanel({ insight, chart, onExport, onReset, export
                   key={tab.name}
                   type="button"
                   disabled={!palace}
-                  onClick={() => palace && gate(`palace:${palace.branch}`, () => openPalace(palace))}
+                  onClick={() => palace && openPalace(palace)}
                   className="relative rounded-full px-2.5 py-1 text-[10px] transition-colors disabled:opacity-40"
                   style={{
                     background: isActive ? 'var(--ac-bg)' : 'var(--glass-bg-2)',
@@ -792,7 +804,7 @@ export default function InsightPanel({ insight, chart, onExport, onReset, export
                 <button
                   key={sec.key}
                   type="button"
-                  onClick={() => gate(sec.key, () => setActiveKey(sec.key))}
+                  onClick={() => setActiveKey(sec.key)}
                   className="rounded-full px-2.5 py-1 text-[10px] transition-colors"
                   style={{
                     background: isActive ? 'var(--ac-bg)' : 'var(--glass-bg-2)',
@@ -916,7 +928,7 @@ export default function InsightPanel({ insight, chart, onExport, onReset, export
       </div>
 
 
-      {upsell && (
+      {upsellKey && (
         <div className="absolute inset-0 z-40 flex items-center justify-center p-4"
           style={{ background: 'rgba(10,14,24,0.35)', backdropFilter: 'blur(4px)' }}>
           <div className="card-glass w-full max-w-sm p-5">
@@ -949,7 +961,7 @@ export default function InsightPanel({ insight, chart, onExport, onReset, export
                 {codeBusy ? '核销中…' : '解锁'}
               </button>
               <button type="button" className="btn-glass !py-2 !text-[12px]"
-                onClick={() => setUpsell(null)}>
+                onClick={dismissUpsell}>
                 稍后
               </button>
             </div>
