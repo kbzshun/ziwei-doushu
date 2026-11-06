@@ -91,19 +91,19 @@ export default function ChatPanel({ chart }: ChatPanelProps) {
   };
 
   return (
-    <div className="flex flex-col h-full rounded-xl overflow-hidden card-glass">
+    <div className="flex flex-col h-full overflow-hidden card-glass">
       {/* 标题 */}
-      <div className="px-4 py-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--t-border)' }}>
-        <h3 className="text-xs font-medium tracking-widest" style={{ color: 'var(--t-gold)' }}>AI 命盘解读</h3>
-        <p className="text-[10px] mt-0.5" style={{ color: 'var(--t-faint)' }}>倪海厦正宗紫微斗数 · 智慧解析</p>
+      <div className="px-4 py-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--bdr)' }}>
+        <h3 className="text-xs font-medium tracking-widest" style={{ color: 'var(--ac)' }}>AI 命盘解读</h3>
+        <p className="text-[10px] mt-0.5" style={{ color: 'var(--tx-3)' }}>倪海厦正宗紫微斗数 · 智慧解析</p>
       </div>
 
       {/* 消息列表 */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
         {messages.length === 0 && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-8">
-            <div className="text-4xl mb-3" style={{ color: 'var(--t-gold)', opacity: 0.15 }}>✦</div>
-            <p className="text-xs leading-relaxed" style={{ color: 'var(--t-faint)' }}>
+            <div className="text-4xl mb-3" style={{ color: 'var(--ac)', opacity: 0.15 }}>✦</div>
+            <p className="text-xs leading-relaxed" style={{ color: 'var(--tx-3)' }}>
               命盘已生成，可直接提问<br />
               或从下方选择常见问题开始解读
             </p>
@@ -119,24 +119,24 @@ export default function ChatPanel({ chart }: ChatPanelProps) {
               className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className="max-w-[85%] rounded-xl px-3.5 py-2.5 text-sm leading-relaxed"
+                className="max-w-[85%] rounded-[var(--r-md)] px-3.5 py-2.5 text-sm leading-relaxed"
                 style={msg.role === 'user' ? {
-                  background: 'rgba(212,168,67,0.1)',
-                  border: '1px solid rgba(212,168,67,0.2)',
-                  color: 'var(--t-gold)',
+                  background: 'var(--ac-bg)',
+                  border: '1px solid var(--ac-bdr)',
+                  color: 'var(--ac)',
                 } : {
-                  background: 'var(--t-card)',
-                  border: '1px solid var(--t-border)',
-                  color: 'var(--t-text)',
+                  background: 'var(--glass-bg-2)',
+                  border: '1px solid var(--bdr)',
+                  color: 'var(--tx-1)',
                 }}
               >
                 {msg.role === 'assistant' && (
-                  <div className="text-[10px] mb-1" style={{ color: 'var(--t-faint)' }}>命理师 ·</div>
+                  <div className="text-[10px] mb-1" style={{ color: 'var(--tx-3)' }}>命理师 ·</div>
                 )}
                 <div className="whitespace-pre-wrap text-xs leading-relaxed">
                   {msg.content}
                   {loading && i === messages.length - 1 && msg.role === 'assistant' && (
-                    <span className="inline-block w-1.5 h-3 ml-0.5 animate-pulse" style={{ background: 'var(--t-gold)', opacity: 0.6 }} />
+                    <span className="inline-block w-1.5 h-3 ml-0.5 animate-pulse" style={{ background: 'var(--ac)', opacity: 0.6 }} />
                   )}
                 </div>
               </div>
@@ -154,19 +154,19 @@ export default function ChatPanel({ chart }: ChatPanelProps) {
                 key={i}
                 onClick={() => sendMessage(q)}
                 disabled={loading}
-                className="text-left text-[10px] rounded-lg px-2.5 py-2 transition-all line-clamp-2"
+                className="text-left text-[10px] rounded-[var(--r-sm)] px-2.5 py-2 transition-all line-clamp-2"
                 style={{
-                  color: 'var(--t-text2)',
-                  border: '1px solid var(--t-border)',
-                  background: 'transparent',
+                  color: 'var(--tx-2)',
+                  border: '1px solid var(--bdr)',
+                  background: 'var(--glass-bg-2)',
                 }}
                 onMouseEnter={e => {
-                  e.currentTarget.style.borderColor = 'rgba(212,168,67,0.3)';
-                  e.currentTarget.style.color = 'var(--t-gold)';
+                  e.currentTarget.style.borderColor = 'var(--ac-bdr)';
+                  e.currentTarget.style.color = 'var(--ac)';
                 }}
                 onMouseLeave={e => {
-                  e.currentTarget.style.borderColor = 'var(--t-border)';
-                  e.currentTarget.style.color = 'var(--t-text2)';
+                  e.currentTarget.style.borderColor = 'var(--bdr)';
+                  e.currentTarget.style.color = 'var(--tx-2)';
                 }}
               >
                 {q}
@@ -177,7 +177,7 @@ export default function ChatPanel({ chart }: ChatPanelProps) {
       )}
 
       {/* 输入框 */}
-      <div className="px-3 pb-3 pt-2 flex-shrink-0" style={{ borderTop: '1px solid var(--t-border)' }}>
+      <div className="px-3 pb-3 pt-2 flex-shrink-0" style={{ borderTop: '1px solid var(--bdr)' }}>
         <div className="flex gap-2">
           <input
             type="text"
@@ -186,21 +186,18 @@ export default function ChatPanel({ chart }: ChatPanelProps) {
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage(input)}
             placeholder="输入问题，如：我的感情运势如何？"
             disabled={loading}
-            className="flex-1 rounded-lg px-3 py-2 text-xs focus:outline-none transition-colors"
-            style={{
-              background: 'var(--t-card)',
-              border: '1px solid var(--t-border)',
-              color: 'var(--t-text)',
-            }}
+            className="input-base flex-1 text-xs"
+            style={{ padding: '8px 12px' }}
           />
           <button
             onClick={() => sendMessage(input)}
             disabled={loading || !input.trim()}
-            className="px-3 py-2 rounded-lg text-xs font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            className="btn-glass text-xs disabled:opacity-30 disabled:cursor-not-allowed"
             style={{
-              background: 'rgba(212,168,67,0.15)',
-              border: '1px solid rgba(212,168,67,0.25)',
-              color: 'var(--t-gold)',
+              background: 'var(--ac-bg)',
+              borderColor: 'var(--ac-bdr)',
+              color: 'var(--ac)',
+              padding: '8px 12px',
             }}
           >
             解读

@@ -1,74 +1,93 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import BirthForm from '@/components/BirthForm';
-import ChartBoard from '@/components/ChartBoard';
-import InsightPanel from '@/components/InsightPanel';
-import TimeNav, { type TimeView } from '@/components/TimeNav';
+import ChartWorkspace from '@/components/ChartWorkspace';
+import RecentCharts from '@/components/RecentCharts';
 import { generateChart } from '@/lib/ziwei/algorithm';
-import type { BirthInfo, ZiweiChart, Palace } from '@/lib/ziwei/types';
+import {
+  clearHistory,
+  loadHistory,
+  removeChart,
+  renameChart,
+  saveChart,
+  type SavedChart,
+} from '@/lib/history';
+import type { BirthInfo, ZiweiChart } from '@/lib/ziwei/types';
 
 /**
- * 命盘页 —— 开源版「排盘引擎 Demo」
- *
- * 这是一个最小可运行示例：用本仓库的排盘引擎 generateChart() 配合基础 UI
- * 组件，渲染一张完整紫微命盘 + 基础解读，并支持本命 / 大限 / 流年切换。
- *
- * 说明：线上商业版的完整交互界面（重设计的新 UI、AI 流式解读、合盘、分享
- * 卡片等）不在开源范围内；但排盘内核——安星算法、四化、格局识别、古籍库——
- * 完全开放（见 lib/ziwei/*），可自由二次开发出你自己的界面。
+ * 排盘页：未起盘时是出生信息表单 + 最近命盘，起盘后进入工作台。
+ * 历史记录存在本机 localStorage，没有账号体系。
  */
 export default function ChartPage() {
   const [chart, setChart] = useState<ZiweiChart | null>(null);
-  const [selectedPalace, setSelectedPalace] = useState<Palace | null>(null);
-  const [view, setView] = useState<TimeView>('mingpan');
-  const [liunianYear, setLiunianYear] = useState(() => new Date().getFullYear());
+  const [history, setHistory] = useState<SavedChart[]>([]);
 
-  // ── 未起盘：展示出生信息表单 ──
+  useEffect(() => {
+    setHistory(loadHistory());
+  }, []);
+
+  const handleSubmit = (info: BirthInfo) => {
+    const generated = generateChart(info);
+    saveChart(info, generated);
+    setHistory(loadHistory());
+    setChart(generated);
+  };
+
   if (!chart) {
     return (
-      <main style={{ maxWidth: 720, margin: '0 auto', padding: '48px 20px' }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>紫微斗数排盘</h1>
-        <p style={{ color: '#888', marginBottom: 32, fontSize: 14, lineHeight: 1.7 }}>
-          输入出生年月日时，开源排盘引擎即时生成命盘。
-          <br />
-          （本页为引擎 Demo，完整商业版界面不在开源范围；排盘内核完全开放。）
-        </p>
-        <BirthForm onSubmit={(info: BirthInfo) => setChart(generateChart(info))} />
-      </main>
+      <StartScreen
+        onSubmit={handleSubmit}
+        history={history}
+        onLoad={item => setChart(item.chart)}
+        onRename={(id, name) => setHistory(renameChart(id, name))}
+        onDelete={id => setHistory(removeChart(id))}
+        onClear={() => setHistory(clearHistory())}
+      />
     );
   }
 
-  // ── 已起盘：命盘 + 解读 ──
-  return (
-    <main style={{ maxWidth: 1280, margin: '0 auto', padding: '24px 16px' }}>
-      <button
-        type="button"
-        onClick={() => { setChart(null); setSelectedPalace(null); }}
-        style={{
-          marginBottom: 16, padding: '6px 14px', cursor: 'pointer',
-          border: '1px solid #ccc', borderRadius: 8, background: 'transparent',
-        }}
-      >
-        ← 重新起盘
-      </button>
+  return <ChartWorkspace chart={chart} onReset={() => setChart(null)} />;
+}
 
-      <TimeNav
-        chart={chart}
-        view={view}
-        liunianYear={liunianYear}
-        onViewChange={setView}
-        onYearChange={setLiunianYear}
+/* ─── 未起盘：输入页 ─────────────────────────────────────── */
+
+function StartScreen({
+  onSubmit, history, onLoad, onRename, onDelete, onClear,
+}: {
+  onSubmit: (info: BirthInfo) => void;
+  history: SavedChart[];
+  onLoad: (item: SavedChart) => void;
+  onRename: (id: string, name: string) => void;
+  onDelete: (id: string) => void;
+  onClear: () => void;
+}) {
+  return (
+    <main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col justify-center px-5 py-14">
+      <div className="mb-9 text-center">
+        <div className="eyebrow mb-3">ZI WEI DOU SHU</div>
+        <h1 className="mb-3 text-[30px] font-semibold leading-tight tracking-wide" style={{ color: 'var(--tx-0)' }}>
+          紫微斗数<span style={{ color: 'var(--ac)' }}>排盘</span>
+        </h1>
+        <p className="mx-auto max-w-md text-[12.5px] leading-7" style={{ color: 'var(--tx-2)' }}>
+          输入出生年月日时，本地即时生成完整命盘，再按主题生成 AI 深度解读。
+        </p>
+      </div>
+
+      <div className="card-glass p-6 sm:p-8">
+        <BirthForm onSubmit={onSubmit} />
+      </div>
+
+      <RecentCharts
+        items={history}
+        onLoad={onLoad}
+        onRename={onRename}
+        onDelete={onDelete}
+        onClear={onClear}
       />
 
-      <div
-        className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]"
-        style={{
-          gap: 20, marginTop: 16, alignItems: 'start',
-        }}
-      >
-        <ChartBoard chart={chart} onPalaceSelect={setSelectedPalace} />
-        <InsightPanel chart={chart} selectedPalace={selectedPalace} />
-      </div>
+      <p className="mt-6 text-center text-[11px]" style={{ color: 'var(--tx-3)' }}>
+        排盘在本地完成 · 生成解读才需要模型 · 出生信息仅用于本次排盘
+      </p>
     </main>
   );
 }

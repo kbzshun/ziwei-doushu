@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, useScroll, useTransform, useInView, AnimatePresence } from 'framer-motion';
 import StarField from '@/components/StarField';
@@ -113,7 +113,7 @@ const FEATURES = [
   {
     tag: 'AI 解读',
     title: '深度解盘\n不止于算',
-    subtitle: '倪海厦体系知识库 × Claude AI',
+    subtitle: '倪海厦体系知识库 × AI',
     points: [
       '命格分析：从命宫主星出发，结合三方四正，给出全面的性格与人生格局判断',
       '六大维度解读：事业方向、感情婚姻、财运模式、健康注意、家庭关系、子女缘分',
@@ -199,52 +199,55 @@ const NI_TEACHINGS = [
 ];
 
 // ─── 主题色彩 helper ─────────────────────────────────────
+// 全部指向 globals.css 的设计变量：深浅色由 [data-theme] 决定，
+// 这里不再写死 hex，首页与工作台、知识库共用同一套玻璃拟物语言。
 function useColors(theme: Theme) {
   const d = theme === 'dark';
   return {
-    bgBase:       d ? '#020810'                                : '#f5efe0',
-    // nav 用与 bgBase 完全相同的不透明色，避免半透明叠加产生色差带
-    navBg:        d ? '#020810'                                : '#f5efe0',
-    navBorder:    d ? 'rgba(255,255,255,0.05)'                : 'rgba(160,120,30,0.15)',
-    goldGrad:     d ? 'linear-gradient(160deg,#c8993a 0%,#f0d070 40%,#c8993a 70%,#f0c755 100%)'
-                    : 'linear-gradient(160deg,#6a4206 0%,#9a6a10 40%,#6a4206 70%,#885010 100%)',
-    goldSolid:    d ? '#d4a843'                               : '#8b6410',
-    goldLine:     d ? 'rgba(212,168,67,0.4)'                  : 'rgba(140,100,20,0.4)',
-    tagText:      d ? 'rgba(212,168,67,0.6)'                  : 'rgba(120,80,10,0.65)',
-    // 亮色文字用冷灰系（A 方案核心）：暖底 + 冷字 → 视觉不审美疲劳
-    textPrimary:  d ? '#e8eef6'                               : '#1a1d24',
-    textSecond:   d ? '#b8c6df'                               : '#3a3f4a',
-    textMuted:    d ? '#9db0d0'                               : '#5a6275',
-    textFaint:    d ? 'rgba(240,246,255,0.56)'                : '#9da4b3',
-    // 冷色 accent（B 方案核心）：呼应暗色 quan 蓝；用于装饰性 glow / 链接 / 高亮
-    accent:       d ? '#3a78d4'                               : '#3a5a82',
-    accentSoft:   d ? 'rgba(58,120,212,0.18)'                 : 'rgba(58,90,130,0.10)',
-    cardBg:       d ? 'rgba(255,255,255,0.05)'                : 'rgba(255,255,255,0.88)',
-    cardBorder:   d ? 'rgba(255,255,255,0.10)'                : 'rgba(200,160,60,0.25)',
-    cardShadow:   d ? '0 4px 32px rgba(0,0,0,0.5)'           : '0 4px 24px rgba(140,100,20,0.12)',
-    featureBg:    d ? 'rgba(255,255,255,0.04)'                : 'rgba(255,255,255,0.75)',
-    featureBord:  d ? 'rgba(255,255,255,0.08)'                : 'rgba(200,160,60,0.2)',
-    glowTint:     d ? 'rgba(212,168,67,0.07)'                 : 'rgba(180,140,40,0.06)',
-    // 亮色 glow 真用蓝/紫——给整体氛围加冷色点缀
-    glowBlue:     d ? 'rgba(40,80,160,0.12)'                  : 'rgba(58,90,130,0.06)',
-    glowPurple:   d ? 'rgba(120,50,180,0.08)'                 : 'rgba(96,80,140,0.04)',
-    niBg:         d ? 'rgba(255,255,255,0.04)'                : 'rgba(255,255,255,0.8)',
-    niBorder:     d ? 'rgba(212,168,67,0.2)'                  : 'rgba(180,130,40,0.25)',
-    niDivider:    d ? 'rgba(255,255,255,0.08)'                : 'rgba(180,130,40,0.12)',
-    niCardBg:     d ? 'rgba(255,255,255,0.04)'                : 'rgba(255,255,255,0.9)',
-    niCardBord:   d ? 'rgba(255,255,255,0.08)'                : 'rgba(200,160,60,0.2)',
-    niCardShadow: d ? '0 2px 20px rgba(0,0,0,0.4)'           : '0 2px 16px rgba(140,100,20,0.1)',
-    starBg:       d ? 'rgba(255,255,255,0.04)'                : 'rgba(255,255,255,0.7)',
-    starBorder:   d ? 'rgba(212,168,67,0.22)'                 : 'rgba(160,120,30,0.3)',
-    starText:     d ? 'rgba(212,168,67,0.7)'                  : 'rgba(120,80,10,0.7)',
-    ctaBg:        d ? 'linear-gradient(135deg,#b8892a,#f0d070,#b8892a)'
-                    : 'linear-gradient(135deg,#6a4206,#9a6810,#6a4206)',
-    ctaText:      d ? '#08080a'                               : '#f8f3e8',
-    footerText:   d ? 'rgba(255,255,255,0.08)'                : '#d0b878',
-    scrollLine:   d ? 'rgba(212,168,67,0.3)'                  : 'rgba(140,100,20,0.3)',
-    scrollText:   d ? 'rgba(255,255,255,0.12)'                : '#c0a870',
-    altSection:   d ? 'rgba(255,255,255,0.02)'                : 'rgba(255,255,255,0.4)',
-    quoteBg:      d ? 'rgba(212,168,67,0.04)'                 : 'rgba(255,255,255,0.9)',
+    bgBase:       'transparent',
+    navBg:        'transparent',
+    navBorder:    'var(--bdr)',
+    // 亮色下用深金，保证白底可读；暗色下用亮金 + 高光
+    goldGrad:     d
+      ? 'linear-gradient(160deg, var(--ac-dim) 0%, var(--ac-hi) 40%, var(--ac) 70%, var(--ac-hi) 100%)'
+      : 'linear-gradient(160deg, #2B3A8F 0%, #4F5BD5 45%, #2B3A8F 70%, #6B74E8 100%)',
+    goldSolid:    'var(--ac)',
+    goldLine:     'var(--ac-bdr)',
+    tagText:      'var(--tx-3)',
+    textPrimary:  'var(--tx-0)',
+    textSecond:   'var(--tx-1)',
+    textMuted:    'var(--tx-2)',
+    textFaint:    'var(--tx-3)',
+    accent:       'var(--quan)',
+    accentSoft:   'rgba(96,165,250,0.14)',
+    // 玻璃面板
+    cardBg:       'var(--glass-bg)',
+    cardBorder:   'var(--glass-brd)',
+    cardShadow:   'var(--glass-shadow)',
+    featureBg:    'var(--glass-bg-2)',
+    featureBord:  'var(--bdr)',
+    glowTint:     'rgba(230,188,85,0.09)',
+    glowBlue:     'rgba(64,110,220,0.14)',
+    glowPurple:   'rgba(126,58,180,0.10)',
+    niBg:         'var(--glass-bg-2)',
+    niBorder:     'var(--ac-bdr)',
+    niDivider:    'var(--bdr)',
+    niCardBg:     'var(--glass-bg-2)',
+    niCardBord:   'var(--bdr)',
+    niCardShadow: 'var(--sh-sm)',
+    starBg:       'var(--glass-bg-2)',
+    starBorder:   'var(--ac-bdr)',
+    starText:     'var(--ac)',
+    // 亮色底上浅金 + 白字几乎不可见，亮色改用深金渐变配白字
+    ctaBg:        d
+      ? 'linear-gradient(135deg, var(--ac-hi) 0%, var(--ac) 52%, var(--ac-dim) 100%)'
+      : 'linear-gradient(135deg, #4F5BD5 0%, #3B48B8 100%)',
+    ctaText:      d ? '#12140F' : '#FFFFFF',
+    footerText:   'var(--tx-3)',
+    scrollLine:   'var(--ac-bdr)',
+    scrollText:   'var(--tx-3)',
+    altSection:   'var(--glass-bg-2)',
+    quoteBg:      'var(--ac-bg)',
   };
 }
 
@@ -451,19 +454,8 @@ export default function HomePage() {
   const heroY = useTransform(scrollYProgress, [0, 1], ['0%', '28%']);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.55], [1, 0]);
 
-  // 把 body / html 背景同步到 home 主题色，消除半透明 nav 透出 #fafaf9 的色差
-  // useLayoutEffect 保证在浏览器绘制前同步更新，避免与根 div 的 transition 不同步
-  useLayoutEffect(() => {
-    document.documentElement.style.background = c.bgBase;
-    document.body.style.background = c.bgBase;
-    return () => {
-      document.documentElement.style.background = '';
-      document.body.style.background = '';
-    };
-  }, [c.bgBase]);
-
   return (
-    <div style={{ background: c.bgBase, transition: 'background 0.35s ease' }} className="overflow-x-hidden">
+    <div className="overflow-x-hidden">
       {/* 致用户公告——首次访问全屏覆盖，关闭后才进入首页 */}
       <AnnouncementModal />
 
@@ -479,11 +471,8 @@ export default function HomePage() {
           style={{ background: `radial-gradient(ellipse, ${c.glowPurple} 0%, transparent 70%)` }} />
       </div>
 
-      {/* ── 顶部导航 ── nav 与 hero 同色（c.bgBase），无 blur 无 border，彻底无色差带 */}
-      <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 sm:px-8 py-3 sm:py-4 gap-2"
-        style={{
-          background: c.navBg,
-        }}>
+      {/* ── 顶部导航 ── 磨砂玻璃，透出背后的星云渐变 */}
+      <nav className="glass-nav fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 sm:px-8 py-3 sm:py-4 gap-2">
         <div className="text-[11px] sm:text-xs tracking-[0.3em] sm:tracking-[0.4em] font-medium transition-colors duration-300 flex-shrink-0"
           style={{ color: c.goldSolid }}>
           紫微命盘
@@ -596,21 +585,23 @@ export default function HomePage() {
           }}
         >
           <div style={{
-            background: 'linear-gradient(135deg, #fff5e3 0%, #ffe1c0 100%)',
-            border: '2px dashed rgba(232,132,62,0.45)',
+            background: 'var(--glass-bg)',
+            border: '1px dashed var(--ac-bdr)',
             borderRadius: '16px',
             padding: '14px 18px',
-            boxShadow: '0 8px 24px rgba(196,90,45,0.18), 0 2px 6px rgba(196,90,45,0.1)',
+            boxShadow: 'var(--glass-shadow)',
+            backdropFilter: 'blur(18px) saturate(150%)',
+            WebkitBackdropFilter: 'blur(18px) saturate(150%)',
             fontFamily: '"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif',
           }}>
             <div style={{ fontSize: '20px', marginBottom: '6px', lineHeight: 1 }}>🎁</div>
-            <div style={{ fontSize: '13px', lineHeight: 1.7, color: '#8b3a1a', fontWeight: 500 }}>
-              <span style={{ color: '#c45a2d', fontWeight: 700, fontSize: '14px' }}>5/1 — 5/8</span>
+            <div style={{ fontSize: '13px', lineHeight: 1.7, color: 'var(--tx-1)', fontWeight: 500 }}>
+              <span style={{ color: 'var(--ac)', fontWeight: 700, fontSize: '14px' }}>5/1 — 5/8</span>
               <span> 限时回馈</span>
             </div>
-            <div style={{ fontSize: '13px', lineHeight: 1.7, color: '#8b3a1a', fontWeight: 500 }}>
+            <div style={{ fontSize: '13px', lineHeight: 1.7, color: 'var(--tx-1)', fontWeight: 500 }}>
               全部功能 + AI 提问
-              <strong style={{ color: '#c45a2d' }}> 全免费</strong>
+              <strong style={{ color: 'var(--ac)' }}> 全免费</strong>
             </div>
           </div>
         </motion.div>
@@ -626,21 +617,23 @@ export default function HomePage() {
           }}
         >
           <div style={{
-            background: 'linear-gradient(135deg, #fff5e3 0%, #ffe1c0 100%)',
-            border: '2px dashed rgba(232,132,62,0.45)',
+            background: 'var(--glass-bg)',
+            border: '1px dashed var(--ac-bdr)',
             borderRadius: '14px',
             padding: '12px 16px',
-            boxShadow: '0 6px 18px rgba(196,90,45,0.16), 0 2px 4px rgba(196,90,45,0.08)',
+            boxShadow: 'var(--glass-shadow)',
+            backdropFilter: 'blur(18px) saturate(150%)',
+            WebkitBackdropFilter: 'blur(18px) saturate(150%)',
             fontFamily: '"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif',
             textAlign: 'center',
           }}>
             <div style={{ fontSize: '18px', marginBottom: '4px', lineHeight: 1 }}>🎁</div>
-            <div style={{ fontSize: '12px', lineHeight: 1.7, color: '#8b3a1a', fontWeight: 500 }}>
-              <span style={{ color: '#c45a2d', fontWeight: 700, fontSize: '13px' }}>5/1 — 5/8</span>
+            <div style={{ fontSize: '12px', lineHeight: 1.7, color: 'var(--tx-1)', fontWeight: 500 }}>
+              <span style={{ color: 'var(--ac)', fontWeight: 700, fontSize: '13px' }}>5/1 — 5/8</span>
               <span> 限时回馈</span>
             </div>
-            <div style={{ fontSize: '12px', lineHeight: 1.7, color: '#8b3a1a', fontWeight: 500 }}>
-              全部功能 + AI <strong style={{ color: '#c45a2d' }}>全免费</strong>
+            <div style={{ fontSize: '12px', lineHeight: 1.7, color: 'var(--tx-1)', fontWeight: 500 }}>
+              全部功能 + AI <strong style={{ color: 'var(--ac)' }}>全免费</strong>
             </div>
           </div>
         </motion.div>
@@ -699,116 +692,6 @@ export default function HomePage() {
       </section>
 
       {/* ══ 4 大学习板块时间轴 ════════════════════════════ */}
-      <section className="relative z-10 py-20 lg:py-24 px-6"
-        style={{
-          background: theme === 'dark'
-            ? 'linear-gradient(to bottom, transparent 0%, rgba(184,146,42,0.03) 50%, transparent 100%)'
-            : 'linear-gradient(to bottom, transparent 0%, rgba(184,146,42,0.04) 50%, transparent 100%)',
-        }}>
-        <FadeIn className="text-center mb-14">
-          <div className="flex items-center justify-center gap-3 mb-3">
-            <div className="h-px w-12" style={{ background: `linear-gradient(to right, transparent, ${c.goldLine})` }} />
-            <span className="text-[10px] tracking-[0.4em] uppercase" style={{ color: c.goldSolid, opacity: 0.7 }}>Curriculum</span>
-            <div className="h-px w-12" style={{ background: `linear-gradient(to left, transparent, ${c.goldLine})` }} />
-          </div>
-          <div className="text-2xl lg:text-3xl font-bold mb-2 tracking-[0.15em]" style={{ color: c.textPrimary }}>
-            倪师方法论 · 渐次展开
-          </div>
-          <div className="text-xs lg:text-sm tracking-[0.1em]" style={{ color: c.textMuted }}>
-            从紫微入门，逐步开放天纪 / 地纪 / 人纪学习模块
-          </div>
-        </FadeIn>
-
-        <div className="max-w-sm lg:max-w-5xl mx-auto relative">
-          {/* 横向连接线（仅桌面）*/}
-          <div className="hidden lg:block absolute top-7 left-[12.5%] right-[12.5%] h-0.5"
-            style={{
-              background: `linear-gradient(90deg, ${c.goldSolid} 0%, ${c.goldSolid} 25%, ${c.goldLine} 25%)`,
-              opacity: 0.6,
-            }} />
-
-          {/* 纵向连接线（仅手机）—— 圆点贴在线上，做"地铁线路图"风格 */}
-          <div className="lg:hidden absolute left-7 top-7 bottom-7 w-px -translate-x-1/2"
-            style={{
-              background: `linear-gradient(180deg, ${c.goldSolid} 0%, ${c.goldSolid} 22%, ${c.goldLine} 22%)`,
-              opacity: 0.6,
-            }} />
-
-          <div className="flex flex-col gap-5 lg:grid lg:grid-cols-4 lg:gap-4">
-            {SECTIONS.map((s, i) => {
-              const ready = s.status === 'ready';
-              return (
-                <motion.div key={s.key}
-                  initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.15, duration: 0.5 }}
-                  viewport={{ once: true }}
-                  className="relative flex flex-row lg:flex-col items-center lg:items-center text-left lg:text-center gap-4 lg:gap-0">
-                  {/* 节点圆 */}
-                  <div className="relative w-14 h-14 shrink-0 rounded-full flex items-center justify-center lg:mb-3"
-                    style={{
-                      background: ready
-                        ? `linear-gradient(135deg, ${c.goldSolid} 0%, ${c.goldSolid}cc 100%)`
-                        : (theme === 'dark' ? 'rgba(184,146,42,0.05)' : '#fdf8ee'),
-                      border: ready ? 'none' : `2px dashed ${c.goldLine}`,
-                      color: ready ? '#fff' : c.textMuted,
-                      boxShadow: ready ? `0 4px 16px ${c.goldSolid}55` : 'none',
-                    }}>
-                    <span className="text-2xl">{s.icon}</span>
-                    {ready && (
-                      <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] text-white"
-                        style={{ background: '#10b981', boxShadow: '0 2px 6px rgba(16,185,129,0.4)' }}>
-                        ✓
-                      </div>
-                    )}
-                  </div>
-                  {/* 文字组：手机端右排单列；桌面端居中堆叠 */}
-                  <div className="flex-1 lg:flex-none flex flex-col items-start lg:items-center min-w-0">
-                    {/* 顶行：时间标签 + 板块名 + note（手机端 inline；桌面端依然分行） */}
-                    <div className="flex items-baseline gap-2 lg:flex-col lg:gap-0 lg:mb-1">
-                      <div className="text-[10px] tracking-[0.25em] lg:mb-1.5"
-                        style={{ color: ready ? '#10b981' : c.textMuted, fontWeight: 500 }}>
-                        {s.when}
-                      </div>
-                      <div className="text-base lg:text-xl font-semibold tracking-[0.15em]"
-                        style={{ color: c.textPrimary }}>
-                        {s.name}
-                      </div>
-                      {s.note && (
-                        <div className="text-[9px] tracking-[0.15em] px-2 py-0.5 rounded-full lg:hidden"
-                          style={{
-                            color: c.goldSolid,
-                            background: theme === 'dark' ? 'rgba(184,146,42,0.1)' : 'rgba(184,146,42,0.08)',
-                            border: `1px solid ${c.goldLine}`,
-                            opacity: 0.85,
-                          }}>
-                          {s.note}
-                        </div>
-                      )}
-                    </div>
-                    {/* 桌面专属 note（手机已在顶行 inline 展示）*/}
-                    {s.note && (
-                      <div className="hidden lg:block text-[9px] tracking-[0.15em] mb-1.5 px-2 py-0.5 rounded-full"
-                        style={{
-                          color: c.goldSolid,
-                          background: theme === 'dark' ? 'rgba(184,146,42,0.1)' : 'rgba(184,146,42,0.08)',
-                          border: `1px solid ${c.goldLine}`,
-                          opacity: 0.85,
-                        }}>
-                        {s.note}
-                      </div>
-                    )}
-                    {/* 简介 */}
-                    <div className="text-[11px] lg:text-xs leading-relaxed lg:max-w-[200px] mt-0.5 lg:mt-0"
-                      style={{ color: c.textSecond }}>
-                      {s.desc}
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
 
       {/* ══ 功能详解 ══════════════════════════════════════ */}
       <section className="relative z-10">
@@ -1129,46 +1012,60 @@ export default function HomePage() {
         </FadeIn>
       </section>
 
+
+      {/* 核心能力 */}
+      <section className="relative z-10 px-6 py-20">
+        <div className="mx-auto max-w-5xl">
+          <div className="text-center mb-10">
+            <div className="eyebrow mb-2">CAPABILITIES</div>
+            <h2 className="text-[26px] font-semibold tracking-wide" style={{ color: 'var(--tx-0)' }}>核心能力</h2>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { t: '本地排盘', d: '安星、四化、格局全部在浏览器里算完，生辰不需要上传。' },
+              { t: '倪师体系', d: '按《天纪》三合派口径解读，引古籍原文与格局判定。' },
+              { t: '运限七档', d: '本命到大限、流年、流月、流日、流时，盘面一键盘切换。' },
+              { t: '报告导出', d: '一键打印成 PDF，含命盘图、格局与 AI 深度解读。' },
+            ].map(item => (
+              <div key={item.t} className="card-glass hover-lift p-5">
+                <div className="mb-1.5 text-[13px] font-semibold" style={{ color: 'var(--tx-0)' }}>{item.t}</div>
+                <p className="text-[11.5px] leading-6" style={{ color: 'var(--tx-2)' }}>{item.d}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 常见问题 */}
+      <section className="relative z-10 px-6 py-20" style={{ background: 'var(--glass-bg-2)' }}>
+        <div className="mx-auto max-w-3xl">
+          <div className="text-center mb-8">
+            <div className="eyebrow mb-2">FAQ</div>
+            <h2 className="text-[26px] font-semibold tracking-wide" style={{ color: 'var(--tx-0)' }}>常见问题</h2>
+          </div>
+          <div className="space-y-2">
+            {[
+              { q: '排盘需要联网或付费吗？', a: '排盘完全在本地完成，不联网、不收费；只有生成 AI 解读时才需要模型接口。' },
+              { q: '我的生辰数据会上传吗？', a: '不会。命盘与历史记录都存在本机浏览器，清缓存会丢失。' },
+              { q: '解读依据是什么？', a: '以倪海厦《天纪》三合派体系为主，结合《紫微斗数全书》等古籍的格局判定。' },
+              { q: '能导出或保存吗？', a: '可以。点「导出 PDF」打印存档；生成过的解读会自动进入右侧「历史」。' },
+            ].map(item => (
+              <div key={item.q} className="card-glass p-4">
+                <div className="mb-1 flex items-center gap-2 text-[12.5px] font-semibold" style={{ color: 'var(--tx-0)' }}>
+                  <span style={{ color: 'var(--ac)' }}>Q</span>
+                  {item.q}
+                </div>
+                <p className="pl-5 text-[11.5px] leading-6" style={{ color: 'var(--tx-2)' }}>{item.a}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="relative z-10 py-10 px-6"
         style={{ borderTop: `1px solid ${c.niCardBord}` }}>
 
-        {/* 4 板块导航占位（已上线 + 即将开放）*/}
-        <div className="max-w-4xl mx-auto mb-8">
-          <div className="text-[9px] tracking-[0.3em] text-center mb-4 uppercase"
-            style={{ color: c.textMuted, opacity: 0.6 }}>
-            倪师方法论 · 学术体系
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-            {SECTIONS.map(s => {
-              const ready = s.status === 'ready';
-              return (
-                <a
-                  key={s.key}
-                  href={ready ? '/chart' : undefined}
-                  onClick={ready ? undefined : (e) => e.preventDefault()}
-                  className="rounded-lg px-3 py-3 text-center transition-all"
-                  style={{
-                    background: ready ? c.starBg : 'transparent',
-                    border: `1px ${ready ? 'solid' : 'dashed'} ${ready ? c.goldLine : c.navBorder}`,
-                    cursor: ready ? 'pointer' : 'not-allowed',
-                    opacity: ready ? 1 : 0.5,
-                    textDecoration: 'none',
-                  }}
-                >
-                  <div className="text-base font-semibold mb-0.5 tracking-[0.1em]"
-                    style={{ color: ready ? c.goldSolid : c.textMuted }}>
-                    {s.name}
-                  </div>
-                  <div className="text-[9px] tracking-wider"
-                    style={{ color: ready ? '#10b981' : c.textMuted }}>
-                    {ready ? '✓ 已上线' : `${s.when} 开放`}
-                  </div>
-                </a>
-              );
-            })}
-          </div>
-        </div>
 
         <div className="text-center">
           <p className="text-[10px] tracking-wider mb-3" style={{ color: c.footerText }}>

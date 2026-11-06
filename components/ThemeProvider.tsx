@@ -6,12 +6,13 @@ export type Theme = 'dark' | 'light';
 const ThemeContext = createContext<{
   theme: Theme;
   toggle: () => void;
-}>({ theme: 'dark', toggle: () => {} });
+}>({ theme: 'light', toggle: () => {} });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   // 初始值必须与服务端一致；真实主题在挂载后的 effect 中从 localStorage 恢复，
-  // 否则会造成 hydration mismatch（服务端 dark vs 客户端 light）。
-  const [theme, setTheme] = useState<Theme>('dark');
+  // 否则会造成 hydration mismatch（服务端 light vs 客户端 dark）。
+  // 站点默认主题 = 白色（light），深色作为可选项保留。
+  const [theme, setTheme] = useState<Theme>('light');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {

@@ -15,57 +15,49 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const hits = q ? searchClassics(q, 50) : [];
 
   return (
-    <div style={{ background: 'var(--bg-page)', minHeight: '100vh' }}>
-      <div className="px-6 py-4 flex items-center justify-between"
-        style={{ borderBottom: '1px solid rgba(184,146,42,0.15)', background: 'var(--bg-page)' }}>
-        <Link href="/library" style={{ fontSize: '12px', color: 'var(--ac)', letterSpacing: '0.3em', textDecoration: 'none' }}>
-          ← 古籍库
-        </Link>
-        <div style={{ fontSize: '12px', color: 'var(--tx-3)', letterSpacing: '0.2em' }}>
-          搜索结果
+    <div className="min-h-screen" style={{ background: 'var(--bg-0)' }}>
+      <header className="glass-nav sticky top-0 z-40">
+        <div className="container-page flex h-14 items-center justify-between gap-3">
+          <Link href="/library" className="text-[12px] transition-colors hover:text-[color:var(--ac-hi)]"
+            style={{ color: 'var(--ac)', letterSpacing: '0.3em', textDecoration: 'none' }}>
+            ← 古籍库
+          </Link>
+          <div className="hidden text-[12px] sm:block" style={{ color: 'var(--tx-3)', letterSpacing: '0.2em' }}>
+            搜索结果
+          </div>
+          <Link href="/" className="text-[12px] transition-colors hover:text-[color:var(--ac-hi)]"
+            style={{ color: 'var(--ac)', letterSpacing: '0.2em', textDecoration: 'none' }}>
+            首页 →
+          </Link>
         </div>
-        <Link href="/" style={{ fontSize: '12px', color: 'var(--ac)', letterSpacing: '0.2em', textDecoration: 'none' }}>
-          首页 →
-        </Link>
-      </div>
+      </header>
 
-      <div className="max-w-3xl mx-auto px-6 py-12">
-        <div className="text-center mb-10">
-          <div style={{ fontSize: '13px', color: 'var(--tx-3)', letterSpacing: '0.15em', marginBottom: '4px' }}>
-            搜索关键词
-          </div>
-          <h1 style={{ fontSize: 'clamp(22px, 3.5vw, 32px)', fontWeight: 700, color: 'var(--tx-0)', letterSpacing: '0.1em' }}>
-            「{q || '（空）'}」
-          </h1>
-          <div style={{ fontSize: '12px', color: 'var(--tx-3)', marginTop: '8px' }}>
-            共找到 <strong style={{ color: 'var(--ac)' }}>{hits.length}</strong> 条古籍原文匹配
-          </div>
-        </div>
+      <main className="container-page max-w-3xl py-10">
+        <div className="eyebrow mb-2">搜索关键词</div>
+        <h1 className="text-[26px] font-semibold" style={{ color: 'var(--tx-0)', letterSpacing: '0.06em' }}>
+          「{q || '（空）'}」
+        </h1>
+        <p className="mt-2 mb-8 text-[12.5px]" style={{ color: 'var(--tx-2)' }}>
+          共找到 <strong style={{ color: 'var(--ac)' }}>{hits.length}</strong> 条古籍原文匹配
+        </p>
 
         {hits.length === 0 ? (
-          <div style={{
-            background: 'var(--bg-card)',
-            padding: '40px 20px',
-            borderRadius: '12px',
-            textAlign: 'center',
-            color: 'var(--tx-2)',
-            border: '1px solid rgba(184,146,42,0.15)',
-          }}>
-            <div style={{ fontSize: '40px', marginBottom: '12px', opacity: 0.4 }}>📜</div>
+          <div className="card-glass px-4 py-10 text-center sm:px-5" style={{ color: 'var(--tx-2)' }}>
+            <div className="text-[40px] mb-3" style={{ opacity: 0.4 }}>📜</div>
             {q ? (
               <>
-                <div style={{ fontSize: '14px', marginBottom: '6px' }}>暂未在已收录古籍中找到这个关键词</div>
-                <div style={{ fontSize: '11px', color: 'var(--tx-3)', lineHeight: 1.7 }}>
+                <div className="text-[14px] mb-1.5">暂未在已收录古籍中找到这个关键词</div>
+                <div className="text-[11px] leading-7" style={{ color: 'var(--tx-3)' }}>
                   我们持续补充内容中。可尝试搜索：<br />
                   <span style={{ color: 'var(--ac)' }}>七杀朝斗 / 双禄朝垣 / 化忌 / 紫微 / 命宫 / 机月同梁</span>
                 </div>
               </>
             ) : (
-              <div style={{ fontSize: '13px' }}>请输入要搜索的关键词</div>
+              <div className="text-[13px]">请输入要搜索的关键词</div>
             )}
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="flex flex-col gap-3">
             {hits.map((hit, i) => {
               const ctx = getParagraphById(hit.paragraphId);
               const chapterIdx = ctx?.chapterIdx ?? 0;
@@ -73,24 +65,11 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                 <Link
                   key={i}
                   href={`/library/${hit.bookSlug}/${chapterIdx}#${hit.paragraphId}`}
-                  style={{
-                    display: 'block',
-                    background: 'var(--bg-card)',
-                    padding: '16px 20px',
-                    borderRadius: '10px',
-                    border: '1px solid rgba(184,146,42,0.18)',
-                    textDecoration: 'none',
-                    color: 'inherit',
-                    transition: 'border-color 0.15s',
-                  }}
+                  className="card-glass hover-lift block px-4 py-4 sm:px-5"
+                  style={{ textDecoration: 'none', color: 'inherit' }}
                 >
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    fontSize: '11px',
+                  <div className="flex items-center gap-2 text-[11px] mb-2" style={{
                     color: 'var(--tx-3)',
-                    marginBottom: '8px',
                     letterSpacing: '0.1em',
                   }}>
                     <span style={{ color: 'var(--ac)', fontWeight: 600 }}>《{hit.bookTitle}》</span>
@@ -111,10 +90,10 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
             })}
           </div>
         )}
-      </div>
+      </main>
 
       <style>{`
-        mark { background: rgba(184,146,42,0.3); color: #8b6a14; padding: 0 2px; border-radius: 2px; font-weight: 600; }
+        mark { background: var(--ac-bg); color: var(--ac-hi); padding: 0 2px; border-radius: 2px; font-weight: 600; }
       `}</style>
     </div>
   );

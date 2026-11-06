@@ -3,7 +3,14 @@ import { motion } from 'framer-motion';
 import { STEMS, SI_HUA_TABLE } from '@/lib/ziwei/constants';
 import type { ZiweiChart } from '@/lib/ziwei/types';
 
-export type TimeView = 'mingpan' | 'daxian' | 'liunian';
+export type TimeView =
+  | 'mingpan'
+  | 'daxian'
+  | 'liunian'
+  | 'xiaoxian'
+  | 'liuyue'
+  | 'liuri'
+  | 'liushi';
 
 interface TimeNavProps {
   chart: ZiweiChart;

@@ -10,6 +10,10 @@ interface PalaceCellProps {
   onStarClick?: (star: Star) => void;
   isSelected?: boolean;
   isSanFang?: boolean;
+  /** 当前运限命宫：画在格子自身边框上，避免绝对定位错位 */
+  isYunxian?: boolean;
+  /** 运限宫名覆盖，如「大限官禄宫」；有值时替代本命宫名显示 */
+  nameOverride?: string;
   delay?: number;
   /** 叠加四化：星名 → 四化类型（'禄'/'权'/'科'/'忌'） */
   overlayStarSiHua?: Record<string, string>;
@@ -54,8 +58,8 @@ const SiHuaBadge = ({
 };
 
 export default function PalaceCell({
-  palace, onClick, onStarClick, isSelected, isSanFang, delay = 0,
-  overlayStarSiHua, overlayLabel, onSiHuaClick,
+  palace, onClick, onStarClick, isSelected, isSanFang, isYunxian, delay = 0,
+  overlayStarSiHua, overlayLabel, onSiHuaClick, nameOverride,
 }: PalaceCellProps) {
   const { branch, stem, name, stars, daXianAge, isCurrentDaXian, isMingGong, isShenGong } = palace;
   const ganzhi = `${STEMS[stem]}${BRANCHES[branch]}`;
@@ -73,22 +77,14 @@ export default function PalaceCell({
       className="relative flex flex-col p-1.5 cursor-pointer transition-all duration-200 h-full"
       style={{
         minHeight: '90px',
-        background: isCurrentDaXian
-          ? 'rgba(147,51,234,0.08)'
-          : isSelected
-          ? 'rgba(37,99,235,0.18)'
-          : isSanFang
-          ? 'rgba(37,99,235,0.09)'
-          : isMingGong
-          ? 'rgba(212,168,67,0.04)'
-          : 'var(--t-bg)',
-        boxShadow: isCurrentDaXian
-          ? 'inset 3px 0 0 rgba(147,51,234,0.5)'
-          : isSelected
-          ? 'inset 0 0 0 1.5px rgba(37,99,235,0.7)'
-          : isSanFang
-          ? 'inset 0 0 0 1px rgba(37,99,235,0.4)'
-          : 'none',
+        /* 宫格底色统一纯白，状态只用描边表达 */
+        background: 'var(--bg-card)',
+        boxShadow: [
+          isYunxian ? 'inset 0 0 0 2px var(--tx-3)' : '',
+          isCurrentDaXian ? 'inset 3px 0 0 var(--bdr-heavy)' : '',
+          isSelected ? 'inset 0 0 0 1.5px rgba(37,99,235,0.55)' : '',
+          isSanFang ? 'inset 0 0 0 1px rgba(37,99,235,0.35)' : '',
+        ].filter(Boolean).join(', ') || 'none',
       }}
     >
       {/* 大限年龄 */}
@@ -105,18 +101,18 @@ export default function PalaceCell({
 
       {/* 宫名行 */}
       <div className="flex items-center gap-1 mb-0.5 pr-8">
-        <span className={clsx('text-[10px] font-medium tracking-wide',
-          isMingGong ? 'text-amber-500' : isShenGong ? 'text-sky-500' : ''
-        )}
-          style={!isMingGong && !isShenGong ? { color: 'var(--t-faint)' } : undefined}
+        <span className="text-[10px] font-medium tracking-wide"
+          style={{ color: isMingGong ? 'var(--tx-0)' : isShenGong ? 'var(--tx-2)' : 'var(--tx-3)' }}
         >
-          {name}
+          {nameOverride ?? name}
         </span>
         {isMingGong && (
-          <span className="text-[7px] text-amber-500/80 border border-amber-500/30 px-0.5 rounded leading-tight">命</span>
+          <span className="text-[7px] px-0.5 rounded leading-tight"
+            style={{ color: 'var(--tx-2)', border: '1px solid var(--bdr-med)' }}>命</span>
         )}
         {isShenGong && (
-          <span className="text-[7px] text-sky-500/80 border border-sky-500/30 px-0.5 rounded leading-tight">身</span>
+          <span className="text-[7px] px-0.5 rounded leading-tight"
+            style={{ color: 'var(--tx-2)', border: '1px solid var(--bdr-med)' }}>身</span>
         )}
       </div>
 
@@ -138,8 +134,14 @@ export default function PalaceCell({
             >
               <span className={clsx(
                 'text-[13px] leading-tight font-bold tracking-tight cursor-pointer hover:brightness-125 transition-all',
-                star.brightness === 'bright' ? 'text-amber-300' : star.brightness === 'dim' ? 'text-amber-700/80' : 'text-amber-500',
-              )}>
+              )}
+                style={{
+                  color: star.brightness === 'bright'
+                    ? 'var(--tx-0)'
+                    : star.brightness === 'dim'
+                      ? 'var(--tx-3)'
+                      : 'var(--tx-1)',
+                }}>
                 {star.name}
               </span>
               {star.siHua && <SiHuaBadge siHua={star.siHua} />}

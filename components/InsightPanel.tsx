@@ -1,38 +1,112 @@
 'use client';
-import { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ZiweiChart, Palace } from '@/lib/ziwei/types';
 import type { TimeView } from './TimeNav';
+import AiContent from './AiContent';
+import RadarChart from './RadarChart';
+import { parseInsightExtras, stripMachineSections } from '@/lib/ai/radar';
+import type { YunxianSelection } from '@/lib/ziwei/yunxian';
+import { yunxianLabel, normalizePalaceName } from '@/lib/ziwei/yunxian';
+import {
+  clearAnalysis,
+  loadAnalysisHistory,
+  removeAnalysis,
+  saveAnalysis,
+  type AnalysisRecord,
+} from '@/lib/history';
+import AnalysisHistory, { AnalysisRecordView } from './AnalysisHistory';
 
-interface Message {
+/* ══════════════════════════════════════════════════════════
+   交互模型：一个主题 = 一节内容（section）
+   - 点「感情」只显示感情的解读，不再把新内容追加到旧内容后面；
+   - 每节自己的追问、自己的流式状态，互不串台；
+   - 已生成的节会被缓存，切回来直接显示，不重复请求。
+   主题分两层：6 个领域主题 + 7 个宫位主题（与主题重叠的 5 宫不重复列出）。
+   ══════════════════════════════════════════════════════════ */
+
+export interface InsightTurn {
   role: 'user' | 'assistant';
   content: string;
-  hidden?: boolean; // don't show user bubble for auto/topic messages
 }
 
-interface SelectedSiHua {
+export interface InsightSection {
+  key: string;
+  label: string;
+  hint?: string;
+  messages: InsightTurn[];
+  loading: boolean;
+  error?: string;
+  lastPrompt?: string;
+}
+
+export interface SelectedSiHua {
   starName: string;
   siHua: string;
   view: TimeView;
 }
 
-interface InsightPanelProps {
-  chart: ZiweiChart;
-  selectedPalace?: Palace | null;
-  selectedSiHua?: SelectedSiHua | null;
+export interface InsightApi {
+  sections: Record<string, InsightSection>;
+  dynamicKeys: string[];
+  activeKey: string;
+  active: InsightSection | undefined;
+  setActiveKey: (key: string) => void;
+  openTopic: (key: string) => void;
+  openPalace: (palace: Palace) => void;
+  /** 选中某个运限（大限 / 流年 / 流月 / 流日 / 流时）→ 生成对应解读 */
+  openPeriod: (
+    sel: YunxianSelection,
+    info: { caption: string; stemName?: string; starHua: Record<string, string> },
+  ) => void;
+  ask: (text: string) => void;
+  retry: () => void;
+  anyLoading: boolean;
+  loadedCount: number;
 }
 
 const TOPICS = [
-  { key: 'overview',     label: '命格' },
-  { key: 'love',        label: '感情' },
-  { key: 'career',      label: '事业' },
-  { key: 'wealth',      label: '财运' },
-  { key: 'health',      label: '健康' },
-  { key: 'personality', label: '性格' },
+  { key: 'overview',    label: '命格总览', hint: '命格总览' },
+  { key: 'wealth',      label: '财运',     hint: '财运模式' },
+  { key: 'career',      label: '事业',     hint: '事业格局' },
+  { key: 'love',        label: '感情',     hint: '感情婚姻' },
+  { key: 'personality', label: '性格',     hint: '性格特质' },
+  { key: 'health',      label: '健康',     hint: '健康运势' },
 ] as const;
+
+export const TOPIC_KEYS: string[] = TOPICS.map(t => t.key);
+
+/** 宫位主题：命宫/财帛/官禄/夫妻/疾厄已由上面 6 个主题覆盖，不重复列出 */
+const PALACE_TABS: { name: string; label: string }[] = [
+  { name: '兄弟宫', label: '兄弟合伙' },
+  { name: '子女宫', label: '子女' },
+  { name: '迁移宫', label: '迁移外出' },
+  { name: '交友宫', label: '人际贵人' },
+  { name: '田宅宫', label: '田宅' },
+  { name: '福德宫', label: '福德' },
+  { name: '父母宫', label: '父母长辈' },
+];
 
 const TOPIC_PROMPTS: Record<string, string> = {
   overview: `请生成命格总览，按以下结构输出：
+
+**【六维评分】**
+只输出一行 JSON，键固定为综合/事业/财运/感情/性格/健康，值取 0-100 的整数，不要任何解释：
+{"综合":78,"事业":82,"财运":70,"感情":65,"性格":80,"健康":72}
+
+**【一句话定调】**
+一句提纲挈领的总论，20 字以内。
+
+**【一句话展开】**
+紧接着用两三句话解释这句定调，说清这个命盘的底层逻辑。
+
+**【核心优势】**
+一句话概括他最稳的优势，落到具体可验证的做事方式。
+
+**【关系模式】**
+一句话说明他与人相处的默认模式。
+
+**【成长课题】**
+一句话点出他最容易卡住、最该修炼的地方。
 
 **【命格定性】**
 用一句话概括这个命盘的核心格局与命主气质。
@@ -144,89 +218,17 @@ const PALACE_ROLES: Record<string, string> = {
   '父母宫': '父母关系、文书契约',
 };
 
-/** Render AI markdown: **【Title】** → gold header, **bold** → strong */
-function AiContent({ text, streaming }: { text: string; streaming?: boolean }) {
-  const lines = text.split('\n');
-  return (
-    <div className="space-y-0.5">
-      {lines.map((line, i) => {
-        const sectionMatch = line.match(/^\*\*【(.+?)】\*\*$/);
-        if (sectionMatch) {
-          return (
-            <div key={i} className="pt-3 pb-0.5 first:pt-0">
-              <span className="text-[11px] font-semibold tracking-wide" style={{ color: 'var(--t-gold)' }}>
-                【{sectionMatch[1]}】
-              </span>
-            </div>
-          );
-        }
-        if (line.trim() === '') return <div key={i} className="h-1" />;
-        const parts = line.split(/\*\*(.+?)\*\*/);
-        return (
-          <div key={i} className="text-[11px] leading-relaxed" style={{ color: 'var(--t-text2)' }}>
-            {parts.map((part, j) =>
-              j % 2 === 0
-                ? part
-                : <strong key={j} className="font-medium" style={{ color: 'var(--t-text)' }}>{part}</strong>
-            )}
-          </div>
-        );
-      })}
-      {streaming && (
-        <span
-          className="inline-block w-1.5 h-3 ml-0.5 animate-pulse rounded-sm align-middle"
-          style={{ background: 'var(--t-gold)', opacity: 0.6 }}
-        />
-      )}
-    </div>
-  );
-}
+function buildPalacePrompt(palace: Palace): string {
+  const majorStars = palace.stars.filter(s => s.type === 'major');
+  const starDesc = majorStars.length > 0
+    ? majorStars.map(s => `${s.name}${s.siHua ? '化' + s.siHua : ''}`).join('、')
+    : `空宫（借对宫${palace.borrowedFromName ?? ''}）`;
+  const role = PALACE_ROLES[palace.name] ?? PALACE_ROLES[`${normalizePalaceName(palace.name)}宫`] ?? '';
 
-export default function InsightPanel({ chart, selectedPalace, selectedSiHua }: InsightPanelProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [activeTopic, setActiveTopic] = useState<string>('overview');
-  const messagesRef = useRef<Message[]>([]); // always-current copy for closures
-  const loadingRef = useRef(false);
-  const autoLoaded = useRef(false);
-  const lastPalaceBranch = useRef<number | undefined>(undefined);
-  const lastSiHuaKey = useRef<string | undefined>(undefined);
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  // Keep refs in sync
-  useEffect(() => { messagesRef.current = messages; }, [messages]);
-  useEffect(() => { loadingRef.current = loading; }, [loading]);
-
-  // Auto-scroll
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
-
-  // Auto-generate 命格总览 on mount
-  useEffect(() => {
-    if (autoLoaded.current) return;
-    autoLoaded.current = true;
-    sendMessage(TOPIC_PROMPTS.overview, true);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Inject palace analysis when palace selected
-  useEffect(() => {
-    if (!selectedPalace || selectedPalace.branch === lastPalaceBranch.current) return;
-    lastPalaceBranch.current = selectedPalace.branch;
-
-    const majorStars = selectedPalace.stars.filter(s => s.type === 'major');
-    const starDesc = majorStars.length > 0
-      ? majorStars.map(s => `${s.name}${s.siHua ? '化' + s.siHua : ''}`).join('、')
-      : '空宫（借对宫）';
-    const role = PALACE_ROLES[selectedPalace.name] ?? '';
-
-    const prompt = `请重点分析【${selectedPalace.name}】（主管：${role}），该宫主星为${starDesc}，按以下结构输出：
+  return `请重点分析【${palace.name}】（主管：${role}），该宫主星为${starDesc}，按以下结构输出：
 
 **【宫位定性】**
-${selectedPalace.name}在命盘中的意义，以及这种星曜配置的整体判断。
+${palace.name}在命盘中的意义，以及这种星曜配置的整体判断。
 
 **【主星解读】**
 主星在此宫的倪海厦体系解读，引用具体观点。
@@ -236,234 +238,650 @@ ${selectedPalace.name}在命盘中的意义，以及这种星曜配置的整体�
 
 **【实际建议】**
 基于此宫的具体建议。`;
+}
 
-    sendMessage(prompt, true);
-  }, [selectedPalace]); // eslint-disable-line react-hooks/exhaustive-deps
+function buildSiHuaPrompt(chart: ZiweiChart, sihua: SelectedSiHua): string {
+  const palaceOfStar = chart.palaces.find(p => p.stars.some(s => s.name === sihua.starName));
+  const palaceName = palaceOfStar?.name ?? '未知宫位';
+  const viewLabel = sihua.view === 'daxian' ? '大限' : '流年';
 
-  // 注入四化飞化分析
-  useEffect(() => {
-    if (!selectedSiHua) return;
-    const key = `${selectedSiHua.starName}-${selectedSiHua.siHua}-${selectedSiHua.view}`;
-    if (key === lastSiHuaKey.current) return;
-    lastSiHuaKey.current = key;
+  return `请分析【${viewLabel}${sihua.starName}化${sihua.siHua}】的飞化影响，按以下结构输出：
 
-    // 找出该星所在宫位
-    const palaceOfStar = chart.palaces.find(p =>
-      p.stars.some(s => s.name === selectedSiHua.starName)
-    );
-    const palaceName = palaceOfStar?.name ?? '未知宫位';
-    const viewLabel = selectedSiHua.view === 'daxian' ? '大限' : '流年';
-
-    const prompt = `请分析【${viewLabel}${selectedSiHua.starName}化${selectedSiHua.siHua}】的飞化影响，按以下结构输出：
-
-**【化${selectedSiHua.siHua}基本含义】**
-化${selectedSiHua.siHua}在倪海厦体系中的核心含义，以及${selectedSiHua.starName}化${selectedSiHua.siHua}的特殊含义。
+**【化${sihua.siHua}基本含义】**
+化${sihua.siHua}在倪海厦体系中的核心含义，以及${sihua.starName}化${sihua.siHua}的特殊含义。
 
 **【落宫影响】**
-${selectedSiHua.starName}化${selectedSiHua.siHua}落在【${palaceName}】，该宫主管的领域受到何种影响，倪师如何解读。
+${sihua.starName}化${sihua.siHua}落在【${palaceName}】，该宫主管的领域受到何种影响，倪师如何解读。
 
 **【三方四正飞化路径】**
-化${selectedSiHua.siHua}入${palaceName}后，对其三方四正（对宫、两个三合宫）的联动影响。
+化${sihua.siHua}入${palaceName}后，对其三方四正（对宫、两个三合宫）的联动影响。
 
 **【当前运势影响】**
-在${viewLabel}时间维度下，此化${selectedSiHua.siHua}对命主近期运势的具体影响。
+在${viewLabel}时间维度下，此化${sihua.siHua}对命主近期运势的具体影响。
 
 **【实际建议】**
 基于此四化的具体可操作建议。`;
+}
 
-    sendMessage(prompt, true);
-  }, [selectedSiHua]); // eslint-disable-line react-hooks/exhaustive-deps
+interface StartOptions {
+  key: string;
+  label: string;
+  hint?: string;
+  prompt: string;
+  bubble?: string;
+  append?: boolean;
+  force?: boolean;
+}
 
-  const streamResponse = async (apiMessages: { role: 'user' | 'assistant'; content: string }[]) => {
+export function useInsight(
+  chart: ZiweiChart,
+  selectedPalace?: Palace | null,
+  selectedSiHua?: SelectedSiHua | null,
+): InsightApi {
+  const [sections, setSections] = useState<Record<string, InsightSection>>({});
+  const [dynamicKeys, setDynamicKeys] = useState<string[]>([]);
+  const [activeKey, setActiveKey] = useState<string>(TOPICS[0].key);
+
+  const chartRef = useRef(chart);
+  chartRef.current = chart;
+  const sectionsRef = useRef(sections);
+  sectionsRef.current = sections;
+  const startedRef = useRef<Set<string>>(new Set());
+  const inflightRef = useRef<Set<string>>(new Set());
+
+  const writeStreamingText = useCallback((key: string, text: string) => {
+    setSections(prev => {
+      const sec = prev[key];
+      if (!sec) return prev;
+      const messages = [...sec.messages];
+      if (messages.length === 0) return prev;
+      messages[messages.length - 1] = { role: 'assistant', content: text };
+      return { ...prev, [key]: { ...sec, messages } };
+    });
+  }, []);
+
+  const finishSection = useCallback((key: string, patch: Partial<InsightSection>, errorText?: string) => {
+    inflightRef.current.delete(key);
+    setSections(prev => {
+      const sec = prev[key];
+      if (!sec) return prev;
+      const messages = [...sec.messages];
+      if (errorText) {
+        const last = messages[messages.length - 1];
+        if (last && last.role === 'assistant' && !last.content) {
+          messages[messages.length - 1] = { role: 'assistant', content: errorText };
+        } else {
+          messages.push({ role: 'assistant', content: errorText });
+        }
+      }
+      return { ...prev, [key]: { ...sec, ...patch, messages } };
+    });
+  }, []);
+
+  const runStream = useCallback(async (key: string, apiMessages: InsightTurn[]) => {
     try {
       const res = await fetch('/api/interpret', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chart, messages: apiMessages }),
+        body: JSON.stringify({ chart: chartRef.current, messages: apiMessages }),
       });
       if (res.status === 404) throw new Error('api-missing');
-      if (!res.ok) throw new Error('请求失败');
+      if (!res.ok) throw new Error(`请求失败（${res.status}）`);
       if (!res.body) throw new Error('无响应流');
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      let assistantText = '';
-
-      setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+      let buffer = '';
+      let acc = '';
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        for (const line of chunk.split('\n')) {
-          if (!line.startsWith('data: ')) continue;
-          const data = line.slice(6);
-          if (data === '[DONE]') break;
+
+        // SSE 分片可能截断在半行，必须把尾部留到下一轮再解析
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const rawLine of lines) {
+          const line = rawLine.trim();
+          if (!line.startsWith('data:')) continue;
+          const data = line.slice(5).trim();
+          if (!data || data === '[DONE]') continue;
           try {
-            const delta = JSON.parse(data).delta?.text ?? '';
-            assistantText += delta;
-            setMessages(prev => {
-              const updated = [...prev];
-              updated[updated.length - 1] = { role: 'assistant', content: assistantText };
-              return updated;
-            });
-          } catch { /* skip */ }
+            const delta: string = JSON.parse(data)?.delta?.text ?? '';
+            if (!delta) continue;
+            acc += delta;
+            writeStreamingText(key, acc);
+          } catch {
+            /* 半行 JSON，交给下一轮 */
+          }
         }
       }
+
+      if (!acc.trim()) {
+        finishSection(key, { loading: false, error: '模型没有返回内容' }, '模型没有返回内容，请重试。');
+      } else {
+        finishSection(key, { loading: false, error: undefined });
+
+        // 生成完就落一条历史，方便回看
+        const sec = sectionsRef.current[key];
+        const kind = key.startsWith('palace:') ? 'palace'
+          : key.startsWith('period:') ? 'period'
+          : key.startsWith('sihua:') ? 'sihua'
+          : 'topic';
+        const b = chartRef.current.birthInfo;
+        saveAnalysis({
+          label: sec?.label ?? '解读',
+          kind,
+          chartLabel: `${b.name || '未命名'} ${b.year}-${b.month}-${b.day}`,
+          content: acc,
+        });
+      }
     } catch (e) {
-      const missing = e instanceof Error && e.message === 'api-missing';
-      setMessages(prev => [...prev, { role: 'assistant', content: missing ? '开源版不含 AI 解读接口（/api/interpret），需要你自己实现后才能用，详见 README「快速开始」。排盘本身不需要任何 API Key。' : '解读失败，请稍后重试。' }]);
-    } finally {
-      setLoading(false);
-      loadingRef.current = false;
+      const msg = e instanceof Error ? e.message : '未知错误';
+      const text = msg === 'api-missing'
+        ? '未找到 /api/interpret 接口，请确认已配置 DeepSeek Key 且服务正常启动。'
+        : `解读失败：${msg}`;
+      finishSection(key, { loading: false, error: text }, text);
     }
+  }, [finishSection, writeStreamingText]);
+
+  const startSection = useCallback((opts: StartOptions) => {
+    const { key, label, hint, prompt, bubble, append, force } = opts;
+    const current = sectionsRef.current[key];
+
+    if (!append && current && !force) return;   // 已存在：直接复用，不重复请求
+    if (inflightRef.current.has(key)) return;   // 同一节只允许一个请求在飞
+    inflightRef.current.add(key);
+    startedRef.current.add(key);
+
+    const history = append ? (current?.messages ?? []) : [];
+    const apiMessages: InsightTurn[] = [
+      ...history.map(m => ({ role: m.role, content: m.content })),
+      { role: 'user', content: prompt },
+    ];
+
+    setSections(prev => {
+      const base = prev[key];
+      const seeded: InsightTurn[] = [];
+      if (append && base) seeded.push(...base.messages);
+      if (bubble) seeded.push({ role: 'user', content: bubble });
+      seeded.push({ role: 'assistant', content: '' });
+
+      return {
+        ...prev,
+        [key]: { key, label, hint, lastPrompt: prompt, loading: true, error: undefined, messages: seeded },
+      };
+    });
+
+    if (!TOPIC_KEYS.includes(key)) {
+      setDynamicKeys(prev => (prev.includes(key) ? prev : [...prev, key]));
+    }
+
+    void runStream(key, apiMessages);
+  }, [runStream]);
+
+  /* ── 换盘：清空所有节 ── */
+  const chartIdentity = useRef(chart);
+  useEffect(() => {
+    if (chartIdentity.current === chart) return;
+    chartIdentity.current = chart;
+    startedRef.current.clear();
+    inflightRef.current.clear();
+    setSections({});
+    setDynamicKeys([]);
+    setActiveKey(TOPICS[0].key);
+  }, [chart]);
+
+  /* ── 首次进入：自动生成命格总览 ── */
+  useEffect(() => {
+    if (startedRef.current.has('overview')) return;
+    startSection({ key: 'overview', label: '命格总览', hint: '命格总览', prompt: TOPIC_PROMPTS.overview });
+  }, [startSection]);
+
+  const openPalace = useCallback((palace: Palace) => {
+    const key = `palace:${palace.branch}`;
+    setActiveKey(key);
+    startSection({
+      key,
+      label: palace.name.replace('宫', '') || '命宫',
+      hint: PALACE_ROLES[palace.name] ?? PALACE_ROLES[`${normalizePalaceName(palace.name)}宫`],
+      prompt: buildPalacePrompt(palace),
+    });
+  }, [startSection]);
+
+  /* ── 点盘面宫位 ── */
+  useEffect(() => {
+    if (!selectedPalace) return;
+    openPalace(selectedPalace);
+  }, [selectedPalace, openPalace]);
+
+  /* ── 点四化 ── */
+  useEffect(() => {
+    if (!selectedSiHua) return;
+    const key = `sihua:${selectedSiHua.starName}:${selectedSiHua.siHua}:${selectedSiHua.view}`;
+    setActiveKey(key);
+    startSection({
+      key,
+      label: `${selectedSiHua.starName}化${selectedSiHua.siHua}`,
+      hint: selectedSiHua.view === 'daxian' ? '大限四化' : '流年四化',
+      prompt: buildSiHuaPrompt(chart, selectedSiHua),
+    });
+  }, [selectedSiHua, chart, startSection]);
+
+  const openTopic = useCallback((key: string) => {
+    const topic = TOPICS.find(t => t.key === key);
+    setActiveKey(key);
+    if (!topic) return;
+    startSection({ key, label: topic.label, hint: topic.hint, prompt: TOPIC_PROMPTS[key] });
+  }, [startSection]);
+
+  const openPeriod = useCallback((
+    sel: YunxianSelection,
+    info: { caption: string; stemName?: string; starHua: Record<string, string> },
+  ) => {
+    if (sel.view === 'mingpan') return;
+    const key = `period:${sel.view}:${sel.year}:${sel.month}:${sel.day}:${sel.hour}:${sel.daXianIndex}`;
+    const label = `${yunxianLabel(sel.view)}运势`;
+    const huaList = Object.entries(info.starHua).map(([star, hua]) => `${star}化${hua}`).join('、') || '（无四化）';
+
+    setActiveKey(key);
+    startSection({
+      key,
+      label,
+      hint: info.caption,
+      prompt: `请分析【${info.caption}】这段运限的整体运势。本运限四化：${huaList}。
+
+按以下结构输出：
+
+**【运限定性】**
+一句话概括这段运限的整体基调（吉凶倾向、宜进宜守）。
+
+**【四化落宫】**
+逐颗说明上面列出的四化分别落在哪一宫、对该宫主管领域的具体影响。
+
+**【重点宫位】**
+这段运限里最值得关注的 2-3 个宫位，说明判断依据。
+
+**【应事建议】**
+具体可执行的建议：该抓什么、该避什么。`,
+    });
+  }, [startSection]);
+
+  const ask = useCallback((text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const key = activeKey;
+    const sec = sectionsRef.current[key];
+    startSection({
+      key,
+      label: sec?.label ?? '追问',
+      hint: sec?.hint,
+      prompt: trimmed,
+      bubble: trimmed,
+      append: true,
+    });
+  }, [activeKey, startSection]);
+
+  const retry = useCallback(() => {
+    const key = activeKey;
+    const sec = sectionsRef.current[key];
+    if (!sec?.lastPrompt) return;
+    setSections(prev => {
+      const cur = prev[key];
+      if (!cur) return prev;
+      return { ...prev, [key]: { ...cur, error: undefined } };
+    });
+    startSection({ key, label: sec.label, hint: sec.hint, prompt: sec.lastPrompt, force: true });
+  }, [activeKey, startSection]);
+
+  const anyLoading = Object.values(sections).some(s => s.loading);
+  const loadedCount = Object.values(sections).filter(s => s.messages.some(m => m.role === 'assistant' && m.content)).length;
+
+  return {
+    sections,
+    dynamicKeys,
+    activeKey,
+    active: sections[activeKey],
+    setActiveKey,
+    openTopic,
+    openPalace,
+    openPeriod,
+    ask,
+    retry,
+    anyLoading,
+    loadedCount,
   };
+}
 
-  const sendMessage = (text: string, hidden = false) => {
-    if (!text.trim() || loadingRef.current) return;
-    loadingRef.current = true;
-    setLoading(true);
+/* ────────────────────────────────────────────────────────── */
 
-    const userMsg: Message = { role: 'user', content: text, hidden };
-    // Capture current messages synchronously via ref (avoids stale closure)
-    const apiMessages = [...messagesRef.current, userMsg].map(m => ({
-      role: m.role,
-      content: m.content,
-    }));
+interface InsightPanelProps {
+  insight: InsightApi;
+  /** 命盘页左侧选中的宫位（点击盘面时同步高亮对应标签） */
+  chart?: ZiweiChart;
+  onExport?: () => void;
+  onReset?: () => void;
+  exportHint?: string;
+}
 
-    setMessages(prev => [...prev, userMsg]);
-    setInput('');
-    streamResponse(apiMessages);
-  };
+export default function InsightPanel({ insight, chart, onExport, onReset, exportHint }: InsightPanelProps) {
+  const { sections, dynamicKeys, activeKey, active, openTopic, openPalace, setActiveKey, ask, retry, anyLoading, loadedCount } = insight;
+  const [input, setInput] = useState('');
+  const [mode, setMode] = useState<'analysis' | 'chat'>('analysis');
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyItems, setHistoryItems] = useState<AnalysisRecord[]>([]);
+  const [viewingRecord, setViewingRecord] = useState<AnalysisRecord | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const stickToBottom = useRef(true);
 
-  const handleTopicClick = (topicKey: string) => {
-    if (loadingRef.current) return;
-    setActiveTopic(topicKey);
-    sendMessage(TOPIC_PROMPTS[topicKey], true);
+  const lastAssistant = active?.messages.filter(m => m.role === 'assistant').slice(-1)[0]?.content ?? '';
+  const thinking = !!active?.loading && !lastAssistant;
+
+  /* 命格总览的结构化部分：六维雷达 + 三张结论卡 */
+  const extras = useMemo(
+    () => (active?.key === 'overview' ? parseInsightExtras(lastAssistant) : null),
+    [active?.key, lastAssistant],
+  );
+
+  /* 切换标签：内容回到顶部，不要自动滚到底 */
+  useEffect(() => {
+    stickToBottom.current = false;
+    scrollRef.current?.scrollTo({ top: 0 });
+  }, [activeKey]);
+
+  /* 流式输出：只有用户本来就在底部时才跟随 */
+  useEffect(() => {
+    if (!stickToBottom.current) return;
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [lastAssistant]);
+
+  const onScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 96;
   };
 
   const handleSend = () => {
-    sendMessage(input);
+    if (!input.trim() || active?.loading) return;
+    ask(input);
+    setInput('');
+    stickToBottom.current = true;
   };
 
-  return (
-    <div className="flex flex-col h-full rounded-xl overflow-hidden card-glass">
+  /* 四化 / 运限节作为胶囊显示；宫位节已经在固定标签里 */
+  const sihuaSections = dynamicKeys
+    .filter(k => k.startsWith('sihua:') || k.startsWith('period:'))
+    .map(k => sections[k])
+    .filter(Boolean);
 
-      {/* ── Topic buttons ── */}
-      <div className="flex-shrink-0 px-2 pt-2.5 pb-2" style={{ borderBottom: '1px solid var(--t-border)' }}>
-        <div className="grid grid-cols-6 gap-1">
-          {TOPICS.map(t => {
-            const isActive = activeTopic === t.key;
-            return (
-              <button
-                key={t.key}
-                onClick={() => handleTopicClick(t.key)}
-                disabled={loading}
-                className="py-1.5 text-[10px] font-medium rounded-lg transition-all duration-150 disabled:opacity-40"
-                style={{
-                  background: isActive ? 'rgba(212,168,67,0.12)' : 'transparent',
-                  border: `1px solid ${isActive ? 'rgba(212,168,67,0.3)' : 'var(--t-border)'}`,
-                  color: isActive ? 'var(--t-gold)' : 'var(--t-faint)',
-                }}
-              >
-                {t.label}
-              </button>
-            );
-          })}
+  // 宫名后缀不统一（兄弟 / 仆役 无「宫」），按归一化名匹配
+  const palaceOf = (name: string) =>
+    chart?.palaces.find(p => normalizePalaceName(p.name) === normalizePalaceName(name));
+
+  return (
+    <div className="card-glass relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl">
+      {/* 头部：分析 / 对话 */}
+      <div className="flex flex-none items-center gap-2 px-3 py-2.5" style={{ borderBottom: '1px solid var(--bdr)' }}>
+        <div className="flex gap-1">
+          {([['analysis', '命盘分析'], ['chat', 'AI 对话']] as const).map(([k, label]) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setMode(k)}
+              className="rounded-lg px-3 py-1.5 text-[12px] font-medium transition-all"
+              style={{
+                background: mode === k ? 'var(--ac-bg)' : 'transparent',
+                border: `1px solid ${mode === k ? 'var(--ac-bdr)' : 'var(--bdr)'}`,
+                color: mode === k ? 'var(--ac)' : 'var(--tx-3)',
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="ml-auto flex items-center gap-2 text-[10px]" style={{ color: 'var(--tx-3)' }}>
+          {anyLoading && (
+            <span className="flex items-center gap-1.5" style={{ color: 'var(--ac)' }}>
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ background: 'var(--ac)' }} />
+              生成中
+            </span>
+          )}
+          {!anyLoading && loadedCount > 0 && <span>已生成 {loadedCount} 项</span>}
+          <button
+            type="button"
+            onClick={() => { setHistoryItems(loadAnalysisHistory()); setViewingRecord(null); setHistoryOpen(true); }}
+            className="btn-glass !px-2.5 !py-1 !text-[10px]"
+          >
+            历史
+          </button>
+          {onReset && (
+            <button type="button" onClick={onReset} className="btn-glass !px-2.5 !py-1 !text-[10px]">
+              重新起盘
+            </button>
+          )}
+          {onExport && (
+            <button
+              type="button"
+              onClick={onExport}
+              className="btn-accent !px-3 !py-1 !text-[10px]"
+              title={exportHint ?? '调用浏览器打印，另存为 PDF'}
+            >
+              ⬇ 导出 PDF
+            </button>
+          )}
         </div>
       </div>
 
-      {/* ── Messages ── */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+      {/* 主题 / 宫位 标签 */}
+      {mode === 'analysis' && (
+        <div className="flex-none px-3 pb-2.5 pt-2.5" style={{ borderBottom: '1px solid var(--bdr)' }}>
+          <div className="grid grid-cols-6 gap-1">
+            {TOPICS.map(topic => {
+              const isActive = activeKey === topic.key;
+              const sec = sections[topic.key];
+              const done = !!sec && sec.messages.some(m => m.role === 'assistant' && m.content) && !sec.loading;
+              return (
+                <button
+                  key={topic.key}
+                  type="button"
+                  onClick={() => openTopic(topic.key)}
+                  className="relative rounded-lg py-1.5 text-[11px] font-medium transition-all duration-150"
+                  style={{
+                    background: isActive ? 'var(--ac-bg)' : 'transparent',
+                    border: `1px solid ${isActive ? 'var(--ac-bdr)' : 'var(--bdr)'}`,
+                    color: isActive ? 'var(--ac)' : done ? 'var(--tx-2)' : 'var(--tx-3)',
+                  }}
+                >
+                  {topic.label}
+                  {sec?.loading && (
+                    <span className="absolute right-1 top-1 h-1 w-1 animate-pulse rounded-full" style={{ background: 'var(--ac)' }} />
+                  )}
+                </button>
+              );
+            })}
+          </div>
 
-        {/* Loading state before first message */}
-        {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="text-4xl mb-3" style={{ color: 'var(--t-gold)', opacity: 0.1 }}>✦</div>
-            <p className="text-[10px] animate-pulse" style={{ color: 'var(--t-faint)' }}>命格解读生成中…</p>
+          <div className="mt-1.5 flex flex-wrap items-center gap-1">
+            <span className="mr-1 text-[9px] tracking-wider" style={{ color: 'var(--tx-3)' }}>宫位</span>
+            {PALACE_TABS.map(tab => {
+              const palace = palaceOf(tab.name);
+              const key = palace ? `palace:${palace.branch}` : '';
+              const isActive = !!key && activeKey === key;
+              const sec = key ? sections[key] : undefined;
+              const done = !!sec && sec.messages.some(m => m.role === 'assistant' && m.content) && !sec.loading;
+              return (
+                <button
+                  key={tab.name}
+                  type="button"
+                  disabled={!palace}
+                  onClick={() => palace && openPalace(palace)}
+                  className="relative rounded-full px-2.5 py-1 text-[10px] transition-colors disabled:opacity-40"
+                  style={{
+                    background: isActive ? 'var(--ac-bg)' : 'var(--glass-bg-2)',
+                    border: `1px solid ${isActive ? 'var(--ac-bdr)' : 'var(--bdr)'}`,
+                    color: isActive ? 'var(--ac)' : done ? 'var(--tx-2)' : 'var(--tx-3)',
+                  }}
+                >
+                  {tab.label}
+                  {sec?.loading && (
+                    <span className="absolute right-0.5 top-0.5 h-1 w-1 animate-pulse rounded-full" style={{ background: 'var(--ac)' }} />
+                  )}
+                </button>
+              );
+            })}
+
+            {sihuaSections.map(sec => {
+              const isActive = activeKey === sec.key;
+              return (
+                <button
+                  key={sec.key}
+                  type="button"
+                  onClick={() => setActiveKey(sec.key)}
+                  className="rounded-full px-2.5 py-1 text-[10px] transition-colors"
+                  style={{
+                    background: isActive ? 'var(--ac-bg)' : 'var(--glass-bg-2)',
+                    border: `1px solid ${isActive ? 'var(--ac-bdr)' : 'var(--bdr)'}`,
+                    color: isActive ? 'var(--ac)' : 'var(--tx-3)',
+                  }}
+                >
+                  {sec.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 当前节内容 */}
+      <div ref={scrollRef} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+        {active?.hint && (
+          <div className="mb-3 flex items-center gap-2">
+            <span className="text-[10px] tracking-wider" style={{ color: 'var(--tx-3)' }}>{active.hint}</span>
+            <span className="h-px flex-1" style={{ background: 'var(--bdr)' }} />
           </div>
         )}
 
-        <AnimatePresence initial={false}>
-          {messages.map((msg, i) => {
-            if (msg.role === 'user' && msg.hidden) return null;
+        {extras && (
+          <div className="mb-5">
+            {extras.scores.length >= 3 && (
+              <div className="card-inner flex flex-col items-center px-3 py-2">
+                <RadarChart scores={extras.scores} size={260} />
+                <p className="mt-1 text-center text-[9px]" style={{ color: 'var(--tx-3)' }}>
+                  六边形按本盘星曜、四化与辅煞的相对强弱示意，不是打分
+                </p>
+              </div>
+            )}
 
-            if (msg.role === 'user') {
-              return (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex justify-end"
-                >
-                  <div
-                    className="max-w-[85%] rounded-xl px-3 py-2 text-[11px]"
-                    style={{
-                      background: 'rgba(212,168,67,0.08)',
-                      border: '1px solid rgba(212,168,67,0.18)',
-                      color: 'var(--t-gold)',
-                    }}
-                  >
-                    {msg.content}
+            {extras.cards.length > 0 && (
+              <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                {extras.cards.map(card => (
+                  <div key={card.title} className="card-inner p-3">
+                    <div className="mb-1 flex items-center gap-1.5 text-[10px] font-medium" style={{ color: 'var(--ac)' }}>
+                      <span aria-hidden>✦</span>
+                      {card.title}
+                    </div>
+                    <p className="text-[11px] leading-6" style={{ color: 'var(--tx-2)' }}>{card.body}</p>
                   </div>
-                </motion.div>
-              );
-            }
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
-            // Assistant message
-            const isLastMsg = i === messages.length - 1;
+        {thinking && (
+          <div className="flex flex-col items-center justify-center gap-2 py-16">
+            <span className="text-2xl" style={{ color: 'var(--ac)', opacity: 0.25 }}>✦</span>
+            <span className="animate-pulse text-[11px]" style={{ color: 'var(--tx-3)' }}>正在推演…</span>
+          </div>
+        )}
+
+        {!thinking && !active && (
+          <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+            <span className="text-2xl" style={{ color: 'var(--ac)', opacity: 0.25 }}>✦</span>
+            <span className="text-[11px]" style={{ color: 'var(--tx-3)' }}>
+              选一个主题或宫位，生成对应解读
+            </span>
+          </div>
+        )}
+
+        {active?.messages.map((msg, i) => {
+          if (msg.role === 'user') {
             return (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
+              <div key={i} className="mb-3 flex justify-end">
                 <div
-                  className="text-[9px] tracking-widest mb-2 flex items-center gap-1.5"
-                  style={{ color: 'var(--t-faint)' }}
+                  className="max-w-[85%] rounded-xl px-3 py-2 text-[11px]"
+                  style={{ background: 'var(--ac-bg)', border: '1px solid var(--ac-bdr)', color: 'var(--ac)' }}
                 >
-                  <span style={{ color: 'var(--t-gold)', opacity: 0.4 }}>✦</span>
+                  {msg.content}
+                </div>
+              </div>
+            );
+          }
+          const shown = active.key === 'overview' ? stripMachineSections(msg.content) : msg.content;
+          if (!shown) return null;
+          const isLast = i === active.messages.length - 1;
+          return (
+            <div key={i} className="mb-4">
+              {i > 0 && (
+                <div className="mb-2 flex items-center gap-1.5 text-[9px] tracking-widest" style={{ color: 'var(--tx-3)' }}>
+                  <span style={{ color: 'var(--ac)', opacity: 0.5 }}>✦</span>
                   命理解读
                 </div>
-                <AiContent text={msg.content} streaming={loading && isLastMsg} />
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
+              )}
+              <AiContent text={shown} streaming={!!active.loading && isLast} />
+            </div>
+          );
+        })}
+
+        {active?.error && (
+          <div className="mt-2 flex items-center gap-3">
+            <span className="text-[10px]" style={{ color: 'var(--ji)' }}>{active.error}</span>
+            <button type="button" onClick={retry} className="btn-glass">重试</button>
+          </div>
+        )}
       </div>
 
-      {/* ── Input ── */}
-      <div className="flex-shrink-0 px-3 pb-3 pt-2" style={{ borderTop: '1px solid var(--t-border)' }}>
+      {/* 追问（只作用于当前标签） */}
+      <div className="flex-none px-3 pb-3 pt-2" style={{ borderTop: '1px solid var(--bdr)' }}>
         <div className="flex gap-2">
           <input
             type="text"
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
-            placeholder="继续追问，如：今年适合换工作吗？"
-            disabled={loading}
-            className="flex-1 rounded-lg px-3 py-2 text-[11px] focus:outline-none transition-colors"
-            style={{
-              background: 'var(--t-card)',
-              border: '1px solid var(--t-border)',
-              color: 'var(--t-text)',
-            }}
+            placeholder={mode === 'chat' ? '问点什么，例如：今年适合换工作吗？' : `就「${active?.label ?? '当前主题'}」继续追问…`}
+            disabled={active?.loading}
+            className="input-base !py-2 !text-[11px]"
           />
-          <button
-            onClick={handleSend}
-            disabled={loading || !input.trim()}
-            className="px-3 py-2 rounded-lg text-[11px] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-            style={{
-              background: 'rgba(212,168,67,0.15)',
-              border: '1px solid rgba(212,168,67,0.25)',
-              color: 'var(--t-gold)',
-            }}
-          >
-            {loading ? '…' : '追问'}
+          <button type="button" onClick={handleSend} disabled={active?.loading || !input.trim()} className="btn-glass">
+            {active?.loading ? '…' : '发送'}
           </button>
         </div>
       </div>
 
+      {/* 历史浮层：覆盖在面板上，不改动主内容区结构 */}
+      {historyOpen && (
+        <div
+          className="absolute inset-0 z-30 flex flex-col p-3"
+          style={{ background: 'var(--bg-0)' }}
+        >
+          {viewingRecord ? (
+            <AnalysisRecordView item={viewingRecord} onBack={() => setViewingRecord(null)} />
+          ) : (
+            <AnalysisHistory
+              items={historyItems}
+              onOpen={setViewingRecord}
+              onDelete={id => setHistoryItems(removeAnalysis(id))}
+              onClear={() => setHistoryItems(clearAnalysis())}
+              onBack={() => setHistoryOpen(false)}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }

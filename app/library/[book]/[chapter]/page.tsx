@@ -32,38 +32,39 @@ export default async function ChapterPage({ params }: { params: Promise<{ book: 
   const nextIdx = chapterIdx + 1;
 
   return (
-    <div style={{ background: 'var(--bg-page)', minHeight: '100vh' }}>
-      <div className="px-6 py-4 flex items-center justify-between"
-        style={{ borderBottom: '1px solid rgba(184,146,42,0.15)', background: 'var(--bg-page)' }}>
-        <Link href={`/library/${book.slug}`} style={{ fontSize: '12px', color: 'var(--ac)', letterSpacing: '0.3em', textDecoration: 'none' }}>
-          ← 《{book.title}》目录
-        </Link>
-        <div style={{ fontSize: '12px', color: 'var(--tx-3)', letterSpacing: '0.15em' }}>
-          {chapter.title}
-        </div>
-        <Link href="/library" style={{ fontSize: '12px', color: 'var(--ac)', letterSpacing: '0.2em', textDecoration: 'none' }}>
-          古籍库 →
-        </Link>
-      </div>
-
-      <article className="max-w-3xl mx-auto px-6 py-12">
-        {/* 标题 */}
-        <div className="text-center mb-10">
-          <div style={{ fontSize: '11px', color: 'var(--tx-3)', letterSpacing: '0.25em', marginBottom: '8px' }}>
-            《{book.title}》· {book.dynasty}
+    <div className="min-h-screen" style={{ background: 'var(--bg-0)' }}>
+      <header className="glass-nav sticky top-0 z-40">
+        <div className="container-page flex h-14 items-center justify-between gap-3">
+          <Link href={`/library/${book.slug}`} className="text-[12px] transition-colors hover:text-[color:var(--ac-hi)]"
+            style={{ color: 'var(--ac)', letterSpacing: '0.15em', textDecoration: 'none' }}>
+            ← 《{book.title}》目录
+          </Link>
+          <div className="hidden text-[12px] sm:block" style={{ color: 'var(--tx-3)', letterSpacing: '0.15em' }}>
+            {chapter.title}
           </div>
-          <h1 style={{ fontSize: 'clamp(24px, 3.5vw, 36px)', fontWeight: 700, color: 'var(--tx-0)', letterSpacing: '0.15em', marginBottom: '8px' }}>
+          <Link href="/library" className="text-[12px] transition-colors hover:text-[color:var(--ac-hi)]"
+            style={{ color: 'var(--ac)', letterSpacing: '0.2em', textDecoration: 'none' }}>
+            古籍库 →
+          </Link>
+        </div>
+      </header>
+
+      <article className="container-page max-w-3xl py-10">
+        {/* 标题 */}
+        <div className="mb-8">
+          <div className="eyebrow mb-2">《{book.title}》· {book.dynasty}</div>
+          <h1 className="text-[26px] font-semibold" style={{ color: 'var(--tx-0)', letterSpacing: '0.08em' }}>
             {chapter.title}
           </h1>
           {chapter.subtitle && (
-            <div style={{ fontSize: '13px', color: 'var(--tx-2)', letterSpacing: '0.1em' }}>
+            <div className="mt-2 text-[12.5px]" style={{ color: 'var(--tx-2)', letterSpacing: '0.1em' }}>
               {chapter.subtitle}
             </div>
           )}
         </div>
 
         {/* 段落 */}
-        <div style={{ background: 'var(--bg-card)', borderRadius: '14px', border: '1px solid rgba(184,146,42,0.2)', padding: '32px 28px' }}>
+        <div className="card-glass px-4 py-6 sm:px-7 sm:py-8">
           {chapter.paragraphs.map((p, i) => (
             <div
               key={p.id}
@@ -71,7 +72,7 @@ export default async function ChapterPage({ params }: { params: Promise<{ book: 
               style={{
                 marginBottom: i === chapter.paragraphs.length - 1 ? 0 : '20px',
                 paddingBottom: i === chapter.paragraphs.length - 1 ? 0 : '20px',
-                borderBottom: i === chapter.paragraphs.length - 1 ? 'none' : '1px dashed rgba(184,146,42,0.15)',
+                borderBottom: i === chapter.paragraphs.length - 1 ? 'none' : '1px solid var(--bdr)',
                 scrollMarginTop: '80px',
               }}
             >
@@ -101,12 +102,10 @@ export default async function ChapterPage({ params }: { params: Promise<{ book: 
                 </p>
               </div>
               {p.translation && (
-                <div style={{
+                <div className="card-inner" style={{
                   marginTop: '8px',
                   marginLeft: '36px',
                   padding: '8px 12px',
-                  background: 'rgba(184,146,42,0.05)',
-                  borderRadius: '6px',
                   fontSize: '13px',
                   color: 'var(--tx-2)',
                   lineHeight: 1.8,
@@ -116,12 +115,11 @@ export default async function ChapterPage({ params }: { params: Promise<{ book: 
                 </div>
               )}
               {p.niNote && (
-                <div style={{
+                <div className="card-inner" style={{
                   marginTop: '8px',
                   marginLeft: '36px',
                   padding: '8px 12px',
-                  background: 'rgba(196,90,45,0.05)',
-                  borderRadius: '6px',
+                  borderLeft: '2px solid var(--ji)',
                   fontSize: '13px',
                   color: 'var(--tx-2)',
                   lineHeight: 1.8,
@@ -135,42 +133,27 @@ export default async function ChapterPage({ params }: { params: Promise<{ book: 
         </div>
 
         {/* 章节导航 */}
-        <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+        <div className="mt-5 flex justify-between gap-3">
           {prevIdx >= 0 ? (
             <Link
               href={`/library/${book.slug}/${prevIdx}`}
-              style={{
-                flex: 1,
-                padding: '14px 18px',
-                background: 'var(--bg-card)',
-                border: '1px solid rgba(184,146,42,0.2)',
-                borderRadius: '10px',
-                textDecoration: 'none',
-                color: 'var(--tx-0)',
-              }}
+              className="card-inner hover-lift flex-1 px-4 py-3.5"
+              style={{ textDecoration: 'none', color: 'var(--tx-0)' }}
             >
-              <div style={{ fontSize: '10px', color: 'var(--tx-3)', letterSpacing: '0.2em', marginBottom: '2px' }}>← 上一章</div>
-              <div style={{ fontSize: '13px', fontWeight: 500 }}>{book.chapters[prevIdx].title}</div>
+              <div className="text-[10px] mb-0.5" style={{ color: 'var(--tx-3)', letterSpacing: '0.2em' }}>← 上一章</div>
+              <div className="text-[13px] font-medium">{book.chapters[prevIdx].title}</div>
             </Link>
-          ) : <div style={{ flex: 1 }} />}
+          ) : <div className="flex-1" />}
           {nextIdx < book.chapters.length ? (
             <Link
               href={`/library/${book.slug}/${nextIdx}`}
-              style={{
-                flex: 1,
-                padding: '14px 18px',
-                background: 'var(--bg-card)',
-                border: '1px solid rgba(184,146,42,0.2)',
-                borderRadius: '10px',
-                textDecoration: 'none',
-                color: 'var(--tx-0)',
-                textAlign: 'right',
-              }}
+              className="card-inner hover-lift flex-1 px-4 py-3.5 text-right"
+              style={{ textDecoration: 'none', color: 'var(--tx-0)' }}
             >
-              <div style={{ fontSize: '10px', color: 'var(--tx-3)', letterSpacing: '0.2em', marginBottom: '2px' }}>下一章 →</div>
-              <div style={{ fontSize: '13px', fontWeight: 500 }}>{book.chapters[nextIdx].title}</div>
+              <div className="text-[10px] mb-0.5" style={{ color: 'var(--tx-3)', letterSpacing: '0.2em' }}>下一章 →</div>
+              <div className="text-[13px] font-medium">{book.chapters[nextIdx].title}</div>
             </Link>
-          ) : <div style={{ flex: 1 }} />}
+          ) : <div className="flex-1" />}
         </div>
       </article>
     </div>
