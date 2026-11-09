@@ -82,7 +82,8 @@ export async function markCodeUsed(code: string): Promise<void> {
 export async function createCodes(count: number, prefix = 'ZW', plan = 'quarter'): Promise<string[]> {
   const made: string[] = [];
   for (let i = 0; i < count; i++) {
-    const code = `${prefix}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+    const tag = plan === 'month' ? 'ZWM' : plan === 'forever' ? 'ZWF' : 'ZWQ';
+    const code = `${tag}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
     await kvSet(`ziwei:code:${code}`, { used: false, plan, expiresAt: Date.now() + 90 * 86400000 });
     made.push(code);
   }
