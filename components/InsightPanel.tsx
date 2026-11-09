@@ -64,6 +64,7 @@ export interface InsightApi {
   anyLoading: boolean;
   loadedCount: number;
   pro: boolean;
+  quota: { used: number; limit: number; remaining: number } | null;
   /** 被拦截的付费功能 key，非空时前端显示升级弹层 */
   upsellKey: string | null;
   dismissUpsell: () => void;
@@ -299,12 +300,20 @@ export function useInsight(
   const proRef = useRef(false);
   proRef.current = pro;
   const [upsellKey, setUpsellKey] = useState<string | null>(null);
+  const [quota, setQuota] = useState<{ used: number; limit: number; remaining: number } | null>(null);
 
   useEffect(() => {
     fetch('/api/auth/me', { cache: 'no-store' })
       .then(r => r.json())
       .then((d: { pro?: boolean }) => setPro(!!d.pro))
       .catch(() => { /* 离线时按未付费处理 */ });
+
+    fetch('/api/usage', { cache: 'no-store' })
+      .then(r => r.json())
+      .then((d: { pro?: boolean; used?: number; limit?: number; remaining?: number }) => {
+        if (!d.pro) setQuota({ used: d.used ?? 0, limit: d.limit ?? 0, remaining: d.remaining ?? 0 });
+      })
+      .catch(() => { /* 忽略 */ });
   }, []);
 
   const writeStreamingText = useCallback((key: string, text: string) => {
@@ -346,6 +355,7 @@ export function useInsight(
       if (res.status === 404) throw new Error('api-missing');
       if (res.status === 401) throw new Error('login-required');
       if (res.status === 403) throw new Error('pro-required');
+      if (res.status === 429) throw new Error('limit-reached');
       if (!res.ok) throw new Error(`请求失败（${res.status}）`);
       if (!res.body) throw new Error('无响应流');
 
@@ -406,7 +416,10 @@ export function useInsight(
           ? '该功能属于专业版，请输入兑换码解锁。'
           : msg === 'pro-required'
             ? '该功能属于专业版，请输入兑换码解锁。'
-            : `解读失败：${msg}`;
+            : msg === 'limit-reached'
+              ? '今日免费解读次数已用完，升级套餐后不限次数。'
+              : `解读失败：${msg}`;
+      if (msg === 'limit-reached') setUpsellKey(key);
       finishSection(key, { loading: false, error: text }, text);
     }
   }, [finishSection, writeStreamingText]);
@@ -584,6 +597,7 @@ export function useInsight(
     anyLoading,
     loadedCount,
     pro,
+    quota,
     upsellKey,
     dismissUpsell: () => setUpsellKey(null),
   };
@@ -601,7 +615,7 @@ interface InsightPanelProps {
 }
 
 export default function InsightPanel({ insight, chart, onExport, onReset, exportHint }: InsightPanelProps) {
-  const { sections, dynamicKeys, activeKey, active, openTopic, openPalace, setActiveKey, ask, retry, anyLoading, loadedCount, upsellKey, dismissUpsell } = insight;
+  const { sections, dynamicKeys, activeKey, active, openTopic, openPalace, setActiveKey, ask, retry, anyLoading, loadedCount, quota, upsellKey, dismissUpsell } = insight;
   const [input, setInput] = useState('');
   const [mode, setMode] = useState<'analysis' | 'chat'>('analysis');
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -715,6 +729,12 @@ export default function InsightPanel({ insight, chart, onExport, onReset, export
             </span>
           )}
           {!anyLoading && loadedCount > 0 && <span>已生成 {loadedCount} 项</span>}
+          {quota && (
+            <span className="chip !px-2 !py-0 !text-[9px]"
+              style={quota.remaining === 0 ? { color: 'var(--ji)', borderColor: 'var(--ji)' } : undefined}>
+              今日剩余 {quota.remaining}/{quota.limit}
+            </span>
+          )}
           <button
             type="button"
             onClick={() => { setHistoryItems(loadAnalysisHistory()); setViewingRecord(null); setHistoryOpen(true); }}
@@ -941,9 +961,14 @@ export default function InsightPanel({ insight, chart, onExport, onReset, export
             <img src="/redeem-qr.png" alt="微信收款码"
               className="mx-auto mb-3 w-44 rounded-lg"
               style={{ border: '1px solid var(--bdr)' }} />
+            <div className="mb-2 space-y-1 text-[11px]" style={{ color: 'var(--tx-2)' }}>
+              <div className="flex justify-between"><span>包月 · 30 天</span><span style={{ color: 'var(--tx-0)' }}>¥9.9</span></div>
+              <div className="flex justify-between"><span>包季 · 90 天（最划算）</span><span style={{ color: 'var(--tx-0)' }}>¥19.9</span></div>
+              <div className="flex justify-between"><span>永久 · 一次买断</span><span style={{ color: 'var(--tx-0)' }}>¥39.9</span></div>
+            </div>
             <p className="mb-3 text-[10.5px] leading-5" style={{ color: 'var(--tx-3)' }}>
-              微信扫码付款后，把兑换码填在下面即可解锁（同一浏览器有效期 90 天）。
-              还没有兑换码？付款时在备注里写上「要兑换码」，作者会发给你。
+              扫码付款（金额按上面套餐），备注写「要兑换码」，作者核对后发你兑换码。
+              填入下方即可解锁，同一浏览器有效期 90 天。
             </p>
             <input
               value={codeInput}
