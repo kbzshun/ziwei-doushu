@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => ({}))) as { order?: string; code?: string };
   const order = (body.order ?? '').trim().toUpperCase();
   const code = (body.code ?? '').trim().toUpperCase();
-  if (!/^[A-Z0-9-]{4,32}$/.test(order) || !/^[A-Z0-9-]{4,32}$/.test(code)) {
+  if (!/^[\u4e00-\u9fa5A-Za-z0-9_-]{2,32}$/.test(order) || !/^[A-Z0-9-]{4,32}$/.test(code)) {
     return NextResponse.json({ error: '订单号或兑换码格式不对' }, { status: 400 });
   }
   try {

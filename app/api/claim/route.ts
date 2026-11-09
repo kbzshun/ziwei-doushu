@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: '参数错误' }, { status: 400 });
   }
 
-  if (!/^[A-Z0-9-]{4,32}$/.test(order)) {
+  if (!/^[\u4e00-\u9fa5A-Za-z0-9_-]{2,32}$/.test(order)) {
     return NextResponse.json({ ok: false, error: '订单号格式不对' }, { status: 400 });
   }
 
