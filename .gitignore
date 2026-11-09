@@ -12,3 +12,4 @@ node_modules
 scripts/ledger.csv
 tools/voucher/ledger.csv
 tools/voucher/.local.env
+tools/voucher/orders.csv

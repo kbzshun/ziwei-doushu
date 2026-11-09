@@ -166,3 +166,12 @@
 - `ADMIN_TOKEN` 等于发码后台密码，**不要提交到 Git、不要外发**；
 - `ledger.csv` 含你的发货记录，已在 `.gitignore` 忽略，建议定期备份到本机其它位置；
 - 当前 `ADMIN_TOKEN` 曾出现在调试记录中，正式收费前请到 Netlify 更换一次。
+
+## 本地订单簿（orders.csv）
+
+线上 `/api/redeem` 在旧版本里会覆盖兑换码记录，导致核销后订单号丢失。
+`bind` 现在会把「订单号 → 兑换码」同时写入 `tools/voucher/orders.csv`（已 gitignore），
+`list` 在线上记录没有订单号时自动用本地订单簿补全。
+
+- 该文件是运营数据，**不要提交到仓库**，建议每周备份。
+- 部署修复版（`lib/store.ts` 的 `markCodeUsed` 合并写回）后线上不再丢失，本地订单簿仍可作为二次核对。

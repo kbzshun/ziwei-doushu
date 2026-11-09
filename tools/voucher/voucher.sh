@@ -62,28 +62,49 @@ print('已记账 ->', path)
     curl -sS "$BASE_URL/api/admin/codes" \
       -H "Authorization: Bearer $ADMIN_TOKEN" \
       | python3 -c '
-import sys, json, datetime
+import sys, json, datetime, os, csv
 d = json.load(sys.stdin)
 if "error" in d:
     print("错误:", d); raise SystemExit(1)
 names = {"month": "包月", "quarter": "包季", "forever": "永久"}
+by_prefix = {"ZWM": "month", "ZWQ": "quarter", "ZWF": "forever"}
+# 本地订单簿：线上核销会覆盖记录丢掉订单号，这里兜底还原
+orders = {}
+op = os.path.join(os.path.dirname(os.path.abspath("'"$0"'")), "orders.csv")
+if os.path.exists(op):
+    with open(op, encoding="utf-8") as f:
+        for row in csv.reader(f):
+            if len(row) >= 2 and row[1].strip():
+                orders[row[1].strip().upper()] = row[0].strip()
 rows = d["codes"]
 free = [c for c in rows if not c["record"].get("used")]
 print("共 %d 个：可用 %d / 已用 %d" % (len(rows), len(free), len(rows) - len(free)))
-by_prefix = {"ZWM": "month", "ZWQ": "quarter", "ZWF": "forever"}
 print("兑换码         套餐  状态  订单号                时间")
 for c in rows:
     r = c["record"] or {}
     code = c["code"]
-    # 兼容旧数据：已核销记录可能丢失 plan，此时按兑换码前缀回推套餐
     key = r.get("plan") or by_prefix.get(code.split("-")[0], "quarter")
     plan = names.get(key, "包季")
     state = "已用" if r.get("used") else "可用"
     ts = r.get("usedAt") or 0
     when = datetime.datetime.fromtimestamp(ts / 1000).strftime("%m-%d %H:%M") if ts else "-"
-    print("%-14s %-5s %-5s %-20s %s" % (code, plan, state, r.get("order") or "-", when))
+    order = r.get("order") or orders.get(code.upper()) or "-"
+    print("%-14s %-5s %-5s %-20s %s" % (code, plan, state, order, when))
 '
     ;;
+
+  bind)
+    order="${2:?用法: ./voucher.sh bind 订单号 ZW-XXXX}"
+    code="${3:?用法: ./voucher.sh bind 订单号 ZW-XXXX}"
+    curl -sS -X POST "$BASE_URL/api/admin/claim" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" \
+      -H 'Content-Type: application/json' \
+      -d "{\"order\":\"$order\",\"code\":\"$code\"}" | python3 -m json.tool
+    # 本地订单簿：即使线上核销覆盖了记录，也能还原订单号
+    printf '%s,%s,%s\n' "$order" "$code" "$(date '+%Y-%m-%d %H:%M')" >> "$(dirname "$0")/orders.csv"
+    echo "已绑定：用户访问 $BASE_URL/claim 输入 $order 即可取码"
+    ;;
+
   bind)
     order="${2:?用法: ./voucher.sh bind 订单号 ZW-XXXX}"
     code="${3:?用法: ./voucher.sh bind 订单号 ZW-XXXX}"
