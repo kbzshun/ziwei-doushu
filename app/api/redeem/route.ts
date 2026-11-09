@@ -18,7 +18,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: '兑换码格式不对' }, { status: 400 });
   }
 
-  const record = await getCode(code);
+  let record;
+  try {
+    record = await getCode(code);
+  } catch (e) {
+    const detail = e instanceof Error ? e.message : String(e);
+    return NextResponse.json(
+      { ok: false, error: '存储服务不可用，请检查 Upstash 配置', detail },
+      { status: 503 },
+    );
+  }
   if (!record) {
     return NextResponse.json({ ok: false, error: '兑换码不存在，请核对后重试' }, { status: 404 });
   }

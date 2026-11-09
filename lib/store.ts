@@ -12,11 +12,24 @@ export const kvEnabled = Boolean(URL_ENV && TOKEN_ENV);
 
 async function cmd(args: (string | number)[]): Promise<unknown> {
   if (!kvEnabled) return null;
-  const res = await fetch(`${URL_ENV}/${args.map(a => encodeURIComponent(String(a))).join('/')}`, {
-    headers: { Authorization: `Bearer ${TOKEN_ENV}` },
+
+  // 常见配置错误先拦下来，给出人话提示
+  const base = (URL_ENV ?? '').trim().replace(/\/+$/, '');
+  if (!/^https:\/\//.test(base)) {
+    throw new Error('UPSTASH_REDIS_REST_URL 必须以 https:// 开头且不带端口（当前值格式不对）');
+  }
+  if (/upstash\.io:\d+/.test(base)) {
+    throw new Error('UPSTASH_REDIS_REST_URL 带上了端口，请改用 REST API 里那条 https 地址');
+  }
+
+  const res = await fetch(`${base}/${args.map(a => encodeURIComponent(String(a))).join('/')}`, {
+    headers: { Authorization: `Bearer ${(TOKEN_ENV ?? '').trim()}` },
     cache: 'no-store',
   });
-  if (!res.ok) throw new Error(`kv ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`upstash ${res.status} ${body.slice(0, 120)}`);
+  }
   const json = (await res.json()) as { result?: unknown };
   return json.result ?? null;
 }

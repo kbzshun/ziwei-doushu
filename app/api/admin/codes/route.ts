@@ -12,7 +12,12 @@ function authorized(req: NextRequest): boolean {
 /** 列出所有兑换码及其使用状态 */
 export async function GET(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-  return NextResponse.json({ kv: kvEnabled, codes: await listCodes() });
+  try {
+    return NextResponse.json({ kv: kvEnabled, codes: await listCodes() });
+  } catch (e) {
+    const detail = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ kv: kvEnabled, error: 'Upstash 调用失败', detail }, { status: 503 });
+  }
 }
 
 /** 批量生成兑换码：POST { count: 10 } */
