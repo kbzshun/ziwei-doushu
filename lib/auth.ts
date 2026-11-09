@@ -5,7 +5,7 @@
  * 说明：真实收费应改为查询订阅表/支付回调，这里先做成可用的最小闭环。
  */
 import crypto from 'crypto';
-import { getRevokeCutoff } from './store';
+import { getRevokeCutoff, isCodeRevoked } from './store';
 
 export const SESSION_COOKIE = 'ziwei_session';
 
@@ -85,5 +85,7 @@ export async function readActiveRedeem(
   if (!redeem) return null;
   const cutoff = await getRevokeCutoff();
   if (cutoff && redeem.iat < cutoff) return null;
+  // 单个码被点名停用：该码发出的凭证一律失效
+  if (redeem.code && (await isCodeRevoked(redeem.code))) return null;
   return redeem;
 }

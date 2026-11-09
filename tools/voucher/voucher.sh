@@ -21,6 +21,24 @@ if [ -z "${ADMIN_TOKEN:-}" ]; then
   exit 1
 fi
 
+# 参数既可以是兑换码，也可以是用 bind 绑定过的订单号（查本地订单簿）
+resolve_code() {
+  local a="$1"
+  case "$a" in
+    ZW*) printf '%s' "$a" ;;
+    *)
+      python3 -c 'import csv, os, sys
+p = os.path.join(os.path.dirname(os.path.abspath(sys.argv[1])), "orders.csv")
+want = sys.argv[2].strip().lower()
+if os.path.exists(p):
+    for row in csv.reader(open(p, encoding="utf-8")):
+        if len(row) >= 2 and row[0].strip().lower() == want:
+            print(row[1].strip().upper())
+' "$0" "$a"
+      ;;
+  esac
+}
+
 cmd="${1:-list}"
 
 case "$cmd" in
@@ -141,19 +159,44 @@ for c in rows:
     echo "订单号历史仍保留在 tools/voucher/orders.csv"
     ;;
   revoke)
-    # 停用历史订单：把吊销线推到当前时间，此前发出的兑换凭证全部失效
-    at="${2:-}"
-    if [ -n "$at" ]; then body="{\"at\":$at}"; else body='{}'; fi
-    curl -sS -X POST "$BASE_URL/api/admin/revoke" \
+    arg="${2:-}"
+    if [ -z "$arg" ]; then
+      curl -sS -X POST "$BASE_URL/api/admin/revoke" \
+        -H "Authorization: Bearer $ADMIN_TOKEN" \
+        -H 'Content-Type: application/json' -d '{}' | python3 -m json.tool
+      echo "已停用全部历史订单：此前发出的兑换凭证立即失效"
+    else
+      code=$(resolve_code "$arg")
+      if [ -z "$code" ]; then
+        echo "没找到兑换码：$arg（订单号需要先 bind 过）" >&2
+        exit 1
+      fi
+      curl -sS -X POST "$BASE_URL/api/admin/revoke" \
+        -H "Authorization: Bearer $ADMIN_TOKEN" \
+        -H 'Content-Type: application/json' -d "{\"code\":\"$code\"}" | python3 -m json.tool
+      echo "已停用 $code（该码发出的凭证立即失效，其他订单不受影响）"
+    fi
+    ;;
+  restore)
+    arg="${2:?用法: ./voucher.sh restore 兑换码或订单号}"
+    code=$(resolve_code "$arg")
+    if [ -z "$code" ]; then echo "没找到兑换码：$arg" >&2; exit 1; fi
+    curl -sS -X DELETE "$BASE_URL/api/admin/revoke" \
       -H "Authorization: Bearer $ADMIN_TOKEN" \
-      -H 'Content-Type: application/json' -d "$body" | python3 -m json.tool
-    echo "此前兑换的凭证已全部失效；受影响用户需使用新的兑换码"
+      -H 'Content-Type: application/json' -d "{\"code\":\"$code\"}" | python3 -m json.tool
+    echo "已恢复 $code"
     ;;
   revoke-status)
-    curl -sS "$BASE_URL/api/admin/revoke" \
-      -H "Authorization: Bearer $ADMIN_TOKEN" | python3 -m json.tool
+    if [ -n "${2:-}" ]; then
+      code=$(resolve_code "$2")
+      curl -sS "$BASE_URL/api/admin/revoke?code=$code" \
+        -H "Authorization: Bearer $ADMIN_TOKEN" | python3 -m json.tool
+    else
+      curl -sS "$BASE_URL/api/admin/revoke" \
+        -H "Authorization: Bearer $ADMIN_TOKEN" | python3 -m json.tool
+    fi
     ;;
   *)
-    echo "用法: $0 {gen [数量] [month|quarter|forever] | list | bind 订单号 兑换码 | redeem 兑换码 | purge-used [--yes] | revoke [时间戳] | revoke-status | del 兑换码 | clean}"; exit 1
+    echo "用法: $0 {gen [数量] [month|quarter|forever] | list | bind 订单号 兑换码 | redeem 兑换码 | purge-used [--yes] | revoke [兑换码/订单号] | restore 兑换码/订单号 | revoke-status [Code] | del 兑换码 | clean}"; exit 1
     ;;
 esac

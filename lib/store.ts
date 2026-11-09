@@ -163,3 +163,48 @@ export async function setRevokeCutoff(ts: number): Promise<void> {
   if (!kvEnabled) throw new Error('存储未配置，无法吊销');
   await kvSet(REVOKE_KEY, ts);
 }
+
+const REVOKE_CODE_PREFIX = 'ziwei:revoked:';
+const REVOKE_LIST_KEY = 'ziwei:revoked:list';
+
+/** 停用单个兑换码：已发出的该码凭证立即失效 */
+export async function revokeCode(code: string): Promise<void> {
+  if (!kvEnabled) throw new Error('存储未配置，无法停用');
+  const c = code.trim().toUpperCase();
+  await kvSet(REVOKE_CODE_PREFIX + c, 1);
+  const list = (await kvGet<string[]>(REVOKE_LIST_KEY)) ?? [];
+  if (!list.includes(c)) await kvSet(REVOKE_LIST_KEY, [...list, c]);
+}
+
+/** 恢复单个兑换码（撤销停用） */
+export async function restoreCode(code: string): Promise<void> {
+  if (!kvEnabled) throw new Error('存储未配置');
+  const c = code.trim().toUpperCase();
+  await kvDel(REVOKE_CODE_PREFIX + c);
+  const list = (await kvGet<string[]>(REVOKE_LIST_KEY)) ?? [];
+  await kvSet(REVOKE_LIST_KEY, list.filter((x) => x !== c));
+}
+
+export async function isCodeRevoked(code: string): Promise<boolean> {
+  if (!kvEnabled) return false;
+  try {
+    const v = await kvGet<number>(REVOKE_CODE_PREFIX + code.trim().toUpperCase());
+    return v === 1;
+  } catch {
+    return false;
+  }
+}
+
+export async function listRevokedCodes(): Promise<string[]> {
+  if (!kvEnabled) return [];
+  try {
+    return (await kvGet<string[]>(REVOKE_LIST_KEY)) ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** 取消全局吊销（不影响单个码的停用记录） */
+export async function clearGlobalRevoke(): Promise<void> {
+  if (kvEnabled) await kvDel(REVOKE_KEY);
+}
