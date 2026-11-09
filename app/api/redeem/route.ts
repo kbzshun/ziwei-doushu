@@ -32,6 +32,9 @@ export async function POST(req: NextRequest) {
   if (!record) {
     return NextResponse.json({ ok: false, error: '兑换码不存在，请核对后重试' }, { status: 404 });
   }
+  if (record.expiresAt && Date.now() > record.expiresAt) {
+    return NextResponse.json({ ok: false, error: '兑换码已过期，请联系作者' }, { status: 410 });
+  }
   if (record.used) {
     return NextResponse.json({ ok: false, error: '该兑换码已被使用' }, { status: 409 });
   }
@@ -41,7 +44,7 @@ export async function POST(req: NextRequest) {
   const planId = record.plan ?? 'quarter';
   const days = planDays(planId);
   const res = NextResponse.json({ ok: true, kv: kvEnabled, plan: planId, days, planName: planById(planId)?.name ?? '包季' });
-  res.cookies.set(REDEEM_COOKIE, createRedeemToken(code), {
+  res.cookies.set(REDEEM_COOKIE, createRedeemToken(code, planId, days), {
     httpOnly: true,
     sameSite: 'lax',
     path: '/',

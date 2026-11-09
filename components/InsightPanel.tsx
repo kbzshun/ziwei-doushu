@@ -65,6 +65,7 @@ export interface InsightApi {
   loadedCount: number;
   pro: boolean;
   quota: { used: number; limit: number; remaining: number } | null;
+  planInfo: string | null;
   /** 被拦截的付费功能 key，非空时前端显示升级弹层 */
   upsellKey: string | null;
   dismissUpsell: () => void;
@@ -301,6 +302,7 @@ export function useInsight(
   proRef.current = pro;
   const [upsellKey, setUpsellKey] = useState<string | null>(null);
   const [quota, setQuota] = useState<{ used: number; limit: number; remaining: number } | null>(null);
+  const [planInfo, setPlanInfo] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/auth/me', { cache: 'no-store' })
@@ -310,8 +312,13 @@ export function useInsight(
 
     fetch('/api/usage', { cache: 'no-store' })
       .then(r => r.json())
-      .then((d: { pro?: boolean; used?: number; limit?: number; remaining?: number }) => {
-        if (!d.pro) setQuota({ used: d.used ?? 0, limit: d.limit ?? 0, remaining: d.remaining ?? 0 });
+      .then((d: { pro?: boolean; used?: number; limit?: number; remaining?: number; planName?: string | null; expiresAt?: number | null }) => {
+        if (!d.pro) {
+          setQuota({ used: d.used ?? 0, limit: d.limit ?? 0, remaining: d.remaining ?? 0 });
+        } else if (d.planName) {
+          const exp = d.expiresAt ? new Date(d.expiresAt).toLocaleDateString('zh-CN') : '';
+          setPlanInfo(`${d.planName}${exp ? ` · 到期 ${exp}` : ''}`);
+        }
       })
       .catch(() => { /* 忽略 */ });
   }, []);
@@ -604,6 +611,7 @@ export function useInsight(
     loadedCount,
     pro,
     quota,
+    planInfo,
     upsellKey,
     dismissUpsell: () => setUpsellKey(null),
   };
@@ -621,7 +629,7 @@ interface InsightPanelProps {
 }
 
 export default function InsightPanel({ insight, chart, onExport, onReset, exportHint }: InsightPanelProps) {
-  const { sections, dynamicKeys, activeKey, active, openTopic, openPalace, setActiveKey, ask, retry, anyLoading, loadedCount, quota, upsellKey, dismissUpsell } = insight;
+  const { sections, dynamicKeys, activeKey, active, openTopic, openPalace, setActiveKey, ask, retry, anyLoading, loadedCount, quota, planInfo, upsellKey, dismissUpsell } = insight;
   const [input, setInput] = useState('');
   const [mode, setMode] = useState<'analysis' | 'chat'>('analysis');
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -735,6 +743,9 @@ export default function InsightPanel({ insight, chart, onExport, onReset, export
             </span>
           )}
           {!anyLoading && loadedCount > 0 && <span>已生成 {loadedCount} 项</span>}
+          {planInfo && (
+            <span className="chip chip-ac !px-2 !py-0 !text-[9px]">{planInfo}</span>
+          )}
           {quota && (
             <span className="chip !px-2 !py-0 !text-[9px]"
               style={quota.remaining === 0 ? { color: 'var(--ji)', borderColor: 'var(--ji)' } : undefined}>

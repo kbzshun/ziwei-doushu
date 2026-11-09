@@ -64,6 +64,8 @@ export interface RedeemRecord {
   note?: string;
   /** 套餐 id：month / quarter / forever，老码为空按季卡处理 */
   plan?: string;
+  /** 兑换截止时间戳，过期作废 */
+  expiresAt?: number;
 }
 
 export async function getCode(code: string): Promise<RedeemRecord | null> {
@@ -81,7 +83,7 @@ export async function createCodes(count: number, prefix = 'ZW', plan = 'quarter'
   const made: string[] = [];
   for (let i = 0; i < count; i++) {
     const code = `${prefix}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
-    await kvSet(`ziwei:code:${code}`, { used: false, plan });
+    await kvSet(`ziwei:code:${code}`, { used: false, plan, expiresAt: Date.now() + 90 * 86400000 });
     made.push(code);
   }
   return made;

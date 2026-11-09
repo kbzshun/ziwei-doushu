@@ -56,12 +56,12 @@ export function isProUser(login?: string | null): boolean {
 
 export const REDEEM_COOKIE = 'ziwei_redeem';
 
-export function createRedeemToken(code: string): string {
-  const body = Buffer.from(JSON.stringify({ code, iat: Date.now() })).toString('base64url');
+export function createRedeemToken(code: string, plan = 'quarter', days = 90): string {
+  const body = Buffer.from(JSON.stringify({ code, plan, days, iat: Date.now() })).toString('base64url');
   return `${body}.${sign(body)}`;
 }
 
-export function readRedeemToken(token?: string | null): { code: string; iat: number } | null {
+export function readRedeemToken(token?: string | null): { code: string; iat: number; plan?: string; days?: number } | null {
   if (!token) return null;
   const [body, mac] = token.split('.');
   if (!body || !mac || sign(body) !== mac) return null;

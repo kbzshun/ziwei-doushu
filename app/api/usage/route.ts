@@ -17,6 +17,9 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     pro,
     redeemed: !!redeem,
+    plan: redeem?.plan ?? null,
+    planName: redeem?.plan === 'month' ? '包月' : redeem?.plan === 'forever' ? '永久' : redeem ? '包季' : null,
+    expiresAt: redeem ? redeem.iat + (redeem.days ?? 90) * 86400000 : null,
     login: user?.login ?? null,
     ...usage,
     limit: pro ? 0 : usage.limit,

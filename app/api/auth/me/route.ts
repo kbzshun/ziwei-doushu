@@ -14,6 +14,9 @@ export async function GET(req: NextRequest) {
     name: user?.name ?? null,
     avatar: user?.avatar ?? null,
     redeemed: !!redeem,
+    plan: redeem?.plan ?? null,
+    planName: redeem?.plan === 'month' ? '包月' : redeem?.plan === 'forever' ? '永久' : redeem ? '包季' : null,
+    expiresAt: redeem ? redeem.iat + (redeem.days ?? 90) * 86400000 : null,
     pro: isProUser(user?.login) || !!redeem,
     freeKeys: FREE_TOPIC_KEYS,
   });
