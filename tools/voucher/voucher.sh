@@ -10,7 +10,16 @@
 set -euo pipefail
 
 BASE_URL="${BASE_URL:-https://frolicking-bublanina-f4c147.netlify.app}"
-ADMIN_TOKEN="${ADMIN_TOKEN:-k7Qm2xR9tLp4vB8nW3zY6cJ1hF5sD0aE}"
+# 从本地文件读取密钥（该文件已在 .gitignore 中，不会进仓库）
+CONF_FILE="$(dirname "$0")/.local.env"
+if [ -f "$CONF_FILE" ]; then
+  # shellcheck disable=SC1090
+  . "$CONF_FILE"
+fi
+if [ -z "${ADMIN_TOKEN:-}" ]; then
+  echo "缺少 ADMIN_TOKEN：请在 tools/voucher/.local.env 中写入 ADMIN_TOKEN=你的token" >&2
+  exit 1
+fi
 
 cmd="${1:-list}"
 
