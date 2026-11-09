@@ -64,6 +64,8 @@ export interface RedeemRecord {
   note?: string;
   /** 套餐 id：month / quarter / forever，老码为空按季卡处理 */
   plan?: string;
+  /** 绑定的订单号（用户付款备注） */
+  order?: string;
   /** 兑换截止时间戳，过期作废 */
   expiresAt?: number;
 }
@@ -72,6 +74,11 @@ export async function getCode(code: string): Promise<RedeemRecord | null> {
   const key = `ziwei:code:${code.toUpperCase()}`;
   if (kvEnabled) return await kvGet<RedeemRecord>(key);
   return envCodes().includes(code.toUpperCase()) ? { used: false } : null;
+}
+
+export async function setCodeRecord(code: string, record: RedeemRecord): Promise<void> {
+  if (!kvEnabled) return;
+  await kvSet(`ziwei:code:${code.toUpperCase()}`, record);
 }
 
 export async function markCodeUsed(code: string): Promise<void> {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { bindOrder } from '@/lib/claim';
+import { getCode, setCodeRecord } from '@/lib/store';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +18,8 @@ export async function POST(req: NextRequest) {
   }
   try {
     await bindOrder(order, code);
+    const rec = await getCode(code);
+    if (rec) await setCodeRecord(code, { ...rec, order });
     return NextResponse.json({ ok: true, order, code });
   } catch (e) {
     return NextResponse.json({ ok: false, error: '存储不可用', detail: e instanceof Error ? e.message : String(e) }, { status: 503 });

@@ -88,7 +88,7 @@
 
 ## 完整操作流程（生成 → 绑定 → 查看）
 
-假设用户付款时在备注里写了订单号 `ZW-TEST1`，买的是包月。
+用户在付款备注里写的是「**微信名 + 套餐**」，例如 `张三包月`。这一串就是订单号，`bind` 时原样填进去。
 
 ```bash
 # ① 生成 1 个包月码（码前缀 ZWM 表示包月）
@@ -96,15 +96,15 @@
 # → {"ok":true,"codes":["ZWM-BZXUB"]}
 
 # ② 把「订单号 → 兑换码」绑定，用户即可自助领取
-./tools/voucher/voucher.sh bind ZW-TEST1 ZWM-BZXUB
-# → {"ok":true,"order":"ZW-TEST1","code":"ZWM-BZXUB"}
+./tools/voucher/voucher.sh bind 张三包月 ZWM-BZXUB
+# → {"ok":true,"order":"张三包月","code":"ZWM-BZXUB"}
 
 # ③ 查看全部码：套餐、状态、使用时间一目了然
 ./tools/voucher/voucher.sh list
 # → 共 3 个：可用 2 / 已用 1
-#   兑换码        套餐  状态  时间
-#   ZWM-BZXUB     包月  可用  -
-#   ZWQ-UREJ4     包季  已用  11-09 16:20
+#   兑换码        套餐  状态  订单号     时间
+#   ZWM-BZXUB     包月  可用  张三包月   -
+#   ZWQ-UREJ4     包季  已用  李四包季   11-09 16:20
 
 # ④ （可选）核销测试：确认这个码能正常兑换，注意会消耗掉它
 ./tools/voucher/voucher.sh redeem ZWM-BZXUB
@@ -113,7 +113,7 @@
 
 然后告诉用户：
 
-> 打开 `https://你的域名/claim`，输入订单号 `ZW-TEST1`，页面会直接显示兑换码；
+> 打开 `https://你的域名/claim`，输入订单号 `张三包月`，页面会直接显示兑换码；
 > 回排盘页点付费功能，输入该码即可解锁。
 
 ### 套餐前缀对照

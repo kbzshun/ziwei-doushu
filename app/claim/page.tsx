@@ -42,7 +42,7 @@ export default function ClaimPage() {
         <div className="mb-2 text-[11px] font-medium" style={{ color: 'var(--tx-1)' }}>充值兑换流程</div>
         <ol className="space-y-1 text-[10.5px] leading-5" style={{ color: 'var(--tx-3)' }}>
           <li>1. 在排盘页点付费功能，弹层里扫收款码付款；</li>
-          <li>2. 付款备注填一个自己好记的订单号（如 ZW-7K3F9）；</li>
+          <li>2. 付款备注写「你的微信名 + 套餐」（如 张三包月 / 张三永久）；</li>
           <li>3. 把订单号发给作者，作者绑定后会通知你；</li>
           <li>4. 回到本页输入订单号 → 立即显示兑换码；</li>
           <li>5. 到排盘页点付费功能，输入该兑换码即可解锁。</li>

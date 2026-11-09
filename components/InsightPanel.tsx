@@ -984,7 +984,7 @@ export default function InsightPanel({ insight, chart, onExport, onReset, export
               <div className="flex justify-between"><span>永久 · 一次买断（最划算）</span><span style={{ color: 'var(--tx-0)' }}>¥39.9</span></div>
             </div>
             <p className="mb-3 text-[10.5px] leading-5" style={{ color: 'var(--tx-3)' }}>
-              扫码付款（金额按上面套餐），备注写「要兑换码」，作者核对后发你兑换码。
+              扫码付款（金额按上面套餐），备注写「你的微信名 + 套餐」（如 张三包月）。作者核对后会通知你领取。
               填入下方即可解锁，同一浏览器有效期 90 天。
             </p>
             <input
