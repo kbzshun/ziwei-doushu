@@ -96,3 +96,25 @@ export async function listCodes(): Promise<{ code: string; record: RedeemRecord 
   }
   return out.sort((a, b) => (b.record.usedAt ?? 0) - (a.record.usedAt ?? 0));
 }
+
+/** 自增计数并首次写入时设置过期（用于每日限额） */
+export async function kvIncr(key: string, ttlSeconds?: number): Promise<number | null> {
+  if (!kvEnabled) return null;
+  const base = (URL_ENV ?? '').trim().replace(/\/+$/, '');
+  const auth = { Authorization: `Bearer ${(TOKEN_ENV ?? '').trim()}` };
+  const res = await fetch(`${base}/incr/${encodeURIComponent(key)}`, { headers: auth, cache: 'no-store' });
+  if (!res.ok) return null;
+  const json = (await res.json()) as { result?: unknown };
+  const n = Number(json.result);
+  if (!Number.isFinite(n)) return null;
+  if (n === 1 && ttlSeconds) {
+    await fetch(`${base}/expire/${encodeURIComponent(key)}/${ttlSeconds}`, { headers: auth, cache: 'no-store' });
+  }
+  return n;
+}
+
+export async function kvReadNumber(key: string): Promise<number> {
+  const raw = await cmd(['GET', key]);
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : 0;
+}

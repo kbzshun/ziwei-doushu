@@ -6,6 +6,7 @@
 import { NextRequest } from 'next/server';
 import { SESSION_COOKIE, REDEEM_COOKIE, readSession, readRedeemToken, isProUser } from '@/lib/auth';
 import { isFreeKey } from '@/lib/entitlements';
+import { clientIp, consumeUsage } from '@/lib/usage';
 import { streamChatToProjectSSE, ChatMessage } from '@/lib/ai/llm';
 
 export const dynamic = 'force-dynamic';
@@ -41,6 +42,19 @@ export async function POST(req: NextRequest) {
     const redeem = readRedeemToken(req.cookies.get(REDEEM_COOKIE)?.value);
     if (!isProUser(user?.login) && !redeem) {
       return Response.json({ error: 'pro-required' }, { status: 403 });
+    }
+  } else {
+    // 免费功能：限流（专业版不限）
+    const user = readSession(req.cookies.get(SESSION_COOKIE)?.value);
+    const redeem = readRedeemToken(req.cookies.get(REDEEM_COOKIE)?.value);
+    if (!isProUser(user?.login) && !redeem) {
+      const quota = await consumeUsage(clientIp(req.headers));
+      if (quota.exceeded) {
+        return Response.json(
+          { error: 'limit-reached', used: quota.used, limit: quota.limit },
+          { status: 429 },
+        );
+      }
     }
   }
   if (!chart) {
