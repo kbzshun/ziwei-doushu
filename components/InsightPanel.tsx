@@ -69,6 +69,8 @@ export interface InsightApi {
   /** 被拦截的付费功能 key，非空时前端显示升级弹层 */
   upsellKey: string | null;
   dismissUpsell: () => void;
+  /** 重新拉取身份与套餐（核销成功后调用，避免整页刷新丢失命盘） */
+  refreshEntitlements: () => Promise<void>;
 }
 
 const TOPICS = [
@@ -304,24 +306,29 @@ export function useInsight(
   const [quota, setQuota] = useState<{ used: number; limit: number; remaining: number } | null>(null);
   const [planInfo, setPlanInfo] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch('/api/auth/me', { cache: 'no-store' })
-      .then(r => r.json())
-      .then((d: { pro?: boolean }) => setPro(!!d.pro))
-      .catch(() => { /* 离线时按未付费处理 */ });
+  /* 身份与套餐：可重复调用（核销兑换码后刷新，不必整页重载） */
+  const refreshEntitlements = useCallback(async () => {
+    try {
+      const me = (await fetch('/api/auth/me', { cache: 'no-store' }).then(r => r.json())) as { pro?: boolean };
+      setPro(!!me.pro);
+    } catch { /* 离线时按未付费处理 */ }
 
-    fetch('/api/usage', { cache: 'no-store' })
-      .then(r => r.json())
-      .then((d: { pro?: boolean; used?: number; limit?: number; remaining?: number; planName?: string | null; expiresAt?: number | null }) => {
-        if (!d.pro) {
-          setQuota({ used: d.used ?? 0, limit: d.limit ?? 0, remaining: d.remaining ?? 0 });
-        } else if (d.planName) {
-          const exp = d.expiresAt ? new Date(d.expiresAt).toLocaleDateString('zh-CN') : '';
-          setPlanInfo(`${d.planName}${exp ? ` · 到期 ${exp}` : ''}`);
-        }
-      })
-      .catch(() => { /* 忽略 */ });
+    try {
+      const d = (await fetch('/api/usage', { cache: 'no-store' }).then(r => r.json())) as {
+        pro?: boolean; used?: number; limit?: number; remaining?: number;
+        planName?: string | null; expiresAt?: number | null;
+      };
+      if (!d.pro) {
+        setQuota({ used: d.used ?? 0, limit: d.limit ?? 0, remaining: d.remaining ?? 0 });
+        setPlanInfo(null);
+      } else if (d.planName) {
+        const exp = d.expiresAt ? new Date(d.expiresAt).toLocaleDateString('zh-CN') : '';
+        setPlanInfo(`${d.planName}${exp ? ` · 到期 ${exp}` : ''}`);
+      }
+    } catch { /* 忽略 */ }
   }, []);
+
+  useEffect(() => { void refreshEntitlements(); }, [refreshEntitlements]);
 
   const writeStreamingText = useCallback((key: string, text: string) => {
     setSections(prev => {
@@ -614,6 +621,7 @@ export function useInsight(
     planInfo,
     upsellKey,
     dismissUpsell: () => setUpsellKey(null),
+    refreshEntitlements,
   };
 }
 
@@ -629,7 +637,7 @@ interface InsightPanelProps {
 }
 
 export default function InsightPanel({ insight, chart, onExport, onReset, exportHint }: InsightPanelProps) {
-  const { sections, dynamicKeys, activeKey, active, openTopic, openPalace, setActiveKey, ask, retry, anyLoading, loadedCount, quota, planInfo, upsellKey, dismissUpsell } = insight;
+  const { sections, dynamicKeys, activeKey, active, openTopic, openPalace, setActiveKey, ask, retry, anyLoading, loadedCount, quota, planInfo, upsellKey, dismissUpsell, refreshEntitlements } = insight;
   const [input, setInput] = useState('');
   const [mode, setMode] = useState<'analysis' | 'chat'>('analysis');
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -650,9 +658,11 @@ export default function InsightPanel({ insight, chart, onExport, onReset, export
       });
       const data = (await res.json()) as { ok?: boolean; error?: string };
       if (data.ok) {
-        dismissUpsell();
+        // 关键：不能 location.reload()，整页刷新会把已排好的命盘清空
+        await refreshEntitlements();
         setCodeInput('');
-        location.reload();
+        setCodeMsg('已解锁，点击上方标签即可查看对应解读');
+        setTimeout(() => { dismissUpsell(); setCodeMsg(''); }, 1200);
       } else {
         setCodeMsg(data.error ?? '核销失败，请稍后重试');
       }

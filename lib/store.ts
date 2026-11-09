@@ -82,8 +82,10 @@ export async function setCodeRecord(code: string, record: RedeemRecord): Promise
 }
 
 export async function markCodeUsed(code: string): Promise<void> {
-  if (!kvEnabled) return;   // 兜底模式无法持久化，见 README 说明
-  await kvSet(`ziwei:code:${code.toUpperCase()}`, { used: true, usedAt: Date.now() });
+  if (!kvEnabled) return;
+  // 保留 plan / expiresAt / order，只更新使用状态
+  const rec = (await getCode(code)) ?? { used: false };
+  await kvSet(`ziwei:code:${code.toUpperCase()}`, { ...rec, used: true, usedAt: Date.now() });
 }
 
 export async function createCodes(count: number, prefix = 'ZW', plan = 'quarter'): Promise<string[]> {
