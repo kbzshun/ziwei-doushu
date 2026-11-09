@@ -963,8 +963,8 @@ export default function InsightPanel({ insight, chart, onExport, onReset, export
               style={{ border: '1px solid var(--bdr)' }} />
             <div className="mb-2 space-y-1 text-[11px]" style={{ color: 'var(--tx-2)' }}>
               <div className="flex justify-between"><span>包月 · 30 天</span><span style={{ color: 'var(--tx-0)' }}>¥9.9</span></div>
-              <div className="flex justify-between"><span>包季 · 90 天（最划算）</span><span style={{ color: 'var(--tx-0)' }}>¥19.9</span></div>
-              <div className="flex justify-between"><span>永久 · 一次买断</span><span style={{ color: 'var(--tx-0)' }}>¥39.9</span></div>
+              <div className="flex justify-between"><span>包季 · 90 天</span><span style={{ color: 'var(--tx-0)' }}>¥19.9</span></div>
+              <div className="flex justify-between"><span>永久 · 一次买断（最划算）</span><span style={{ color: 'var(--tx-0)' }}>¥39.9</span></div>
             </div>
             <p className="mb-3 text-[10.5px] leading-5" style={{ color: 'var(--tx-3)' }}>
               扫码付款（金额按上面套餐），备注写「要兑换码」，作者核对后发你兑换码。
