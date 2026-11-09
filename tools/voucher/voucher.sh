@@ -32,7 +32,9 @@ case "$cmd" in
       -H 'Content-Type: application/json' \
       -d "{\"count\":$n,\"plan\":\"$plan\"}")
     echo "$out" | python3 -m json.tool
-    # 记账：scripts/ledger.csv
+    # 失败（如 unauthorized）不记账
+    echo "$out" | python3 -c 'import sys,json; sys.exit(0 if json.load(sys.stdin).get("ok") else 1)' || exit 1
+    # 记账：ledger.csv
     echo "$out" | python3 -c "
 import sys, json, datetime, os
 d = json.load(sys.stdin)
