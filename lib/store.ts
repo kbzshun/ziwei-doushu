@@ -130,3 +130,16 @@ export async function kvReadNumber(key: string): Promise<number> {
   const n = Number(raw);
   return Number.isFinite(n) ? n : 0;
 }
+
+export async function deleteCode(code: string): Promise<void> {
+  await kvDel(`ziwei:code:${code.toUpperCase()}`);
+}
+
+/** 删除全部兑换码 */
+export async function deleteAllCodes(): Promise<number> {
+  if (!kvEnabled) return 0;
+  const keys = await cmd(['KEYS', 'ziwei:code:*']);
+  if (!Array.isArray(keys)) return 0;
+  for (const k of keys as string[]) await kvDel(k);
+  return keys.length;
+}

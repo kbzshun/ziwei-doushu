@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createCodes, listCodes, kvEnabled } from '@/lib/store';
+import { createCodes, listCodes, kvEnabled, deleteCode, deleteAllCodes } from '@/lib/store';
 import { planById } from '@/lib/plans';
 
 export const dynamic = 'force-dynamic';
@@ -40,5 +40,22 @@ export async function POST(req: NextRequest) {
       { ok: false, error: '存储服务不可用，请检查 Upstash 配置', detail },
       { status: 503 },
     );
+  }
+}
+
+/** 删除兑换码：{ all: true } 清空，或 { codes: ["ZWM-XXX"] } 指定删除 */
+export async function DELETE(req: NextRequest) {
+  if (!authorized(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  const body = (await req.json().catch(() => ({}))) as { all?: boolean; codes?: string[] };
+  try {
+    if (body.all) {
+      const n = await deleteAllCodes();
+      return NextResponse.json({ ok: true, deleted: n });
+    }
+    const list = (body.codes ?? []).filter(Boolean);
+    for (const c of list) await deleteCode(c);
+    return NextResponse.json({ ok: true, deleted: list.length });
+  } catch (e) {
+    return NextResponse.json({ ok: false, error: '存储不可用', detail: e instanceof Error ? e.message : String(e) }, { status: 503 });
   }
 }

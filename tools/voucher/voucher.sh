@@ -36,6 +36,17 @@ with open(path, 'a', encoding='utf-8') as f:
 print('已记账 ->', path)
 " "$plan"
     ;;
+  clean)
+    curl -sS -X DELETE "$BASE_URL/api/admin/codes" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" \
+      -H 'Content-Type: application/json' -d '{"all":true}' | python3 -m json.tool
+    ;;
+  del)
+    code="${2:?用法: ./voucher.sh del ZWM-XXXX}"
+    curl -sS -X DELETE "$BASE_URL/api/admin/codes" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" \
+      -H 'Content-Type: application/json' -d "{\"codes\":[\"$code\"]}" | python3 -m json.tool
+    ;;
   list)
     curl -sS "$BASE_URL/api/admin/codes" \
       -H "Authorization: Bearer $ADMIN_TOKEN" \
