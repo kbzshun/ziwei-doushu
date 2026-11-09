@@ -440,10 +440,16 @@ export function useInsight(
     inflightRef.current.add(key);
     startedRef.current.add(key);
 
+    // 免费 / 专业版用不同深度的提示词（追问不追加，避免污染对话）
+    const depth = proRef.current
+      ? '\n\n【深度模式】每个小节不少于 300 字。顺序：先给结论 → 再列盘面依据（涉及哪些星曜、宫位、四化、格局）→ 最后给 2-3 条具体可执行的建议。适当补充古籍出处与生活场景举例，用大白话解释术语，让没有命理基础的读者也能看懂。'
+      : '\n\n【精简模式】整体控制在 600 字以内，每个小节 2-3 句话，先给结论，不展开举例。';
+
+    const finalPrompt = append ? prompt : prompt + depth;
     const history = append ? (current?.messages ?? []) : [];
     const apiMessages: InsightTurn[] = [
       ...history.map(m => ({ role: m.role, content: m.content })),
-      { role: 'user', content: prompt },
+      { role: 'user', content: finalPrompt },
     ];
 
     setSections(prev => {
@@ -455,7 +461,7 @@ export function useInsight(
 
       return {
         ...prev,
-        [key]: { key, label, hint, lastPrompt: prompt, loading: true, error: undefined, messages: seeded },
+        [key]: { key, label, hint, lastPrompt: finalPrompt, loading: true, error: undefined, messages: seeded },
       };
     });
 
