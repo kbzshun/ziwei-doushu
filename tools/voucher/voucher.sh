@@ -120,7 +120,27 @@ for c in rows:
       -H 'Content-Type: application/json' \
       -d "{\"code\":\"$code\"}" | python3 -m json.tool
     ;;
+  purge-used)
+    # 停用（删除）所有已核销的兑换码：先预览，加 --yes 才真正执行
+    used=$(curl -sS "$BASE_URL/api/admin/codes" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" \
+      | python3 -c 'import sys,json; d=json.load(sys.stdin); print(" ".join(c["code"] for c in d["codes"] if c["record"].get("used")))')
+    if [ -z "$used" ]; then echo "没有已用的兑换码，无需操作"; exit 0; fi
+    n=$(echo "$used" | wc -w)
+    echo "将停用以下 $n 个已用兑换码（从线上删除，不可恢复）："
+    for c in $used; do echo "  $c"; done
+    if [ "${2:-}" != "--yes" ]; then
+      echo
+      echo "确认执行：./tools/voucher/voucher.sh purge-used --yes"
+      exit 0
+    fi
+    body=$(python3 -c 'import json,sys; print(json.dumps({"codes": sys.argv[1:]}))' $used)
+    curl -sS -X DELETE "$BASE_URL/api/admin/codes" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" \
+      -H 'Content-Type: application/json' -d "$body" | python3 -m json.tool
+    echo "订单号历史仍保留在 tools/voucher/orders.csv"
+    ;;
   *)
-    echo "用法: $0 {gen [数量] [month|quarter|forever] | list | redeem 兑换码}"; exit 1
+    echo "用法: $0 {gen [数量] [month|quarter|forever] | list | bind 订单号 兑换码 | redeem 兑换码 | purge-used [--yes] | del 兑换码 | clean}"; exit 1
     ;;
 esac
