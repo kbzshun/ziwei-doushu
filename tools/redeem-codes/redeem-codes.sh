@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# 兑换码发货脚本（本地使用，别提交到公开仓库）
+# 兑换码发货工具（本地使用，别提交到公开仓库）
 #
 # 用法：
-#   ./scripts/codes.sh gen 10      # 生成 10 个码
-#   ./scripts/codes.sh list        # 查看全部码与使用状态
-#   ./scripts/codes.sh redeem ZW-XXXXX   # 测试核销（会消耗一个码）
+#   ./tools/redeem-codes/redeem-codes.sh gen 10 quarter   # 生成 10 个包季码
+#   ./tools/redeem-codes/redeem-codes.sh list             # 查看全部码与使用状态
+#   ./tools/redeem-codes/redeem-codes.sh redeem ZW-XXXXX  # 测试核销（会消耗一个码）
 #
 # 首次使用：把下面的 ADMIN_TOKEN 换成你自己在 Netlify 里设置的值。
 set -euo pipefail
@@ -27,7 +27,7 @@ case "$cmd" in
     echo "$out" | python3 -c "
 import sys, json, datetime, os
 d = json.load(sys.stdin)
-path = os.path.join(os.path.dirname('$0') or '.', 'ledger.csv')
+path = os.path.join(os.path.dirname(os.path.abspath('$0')), 'ledger.csv')
 new = not os.path.exists(path)
 with open(path, 'a', encoding='utf-8') as f:
     if new: f.write('时间,套餐,兑换码,状态\n')
@@ -57,6 +57,6 @@ if free: print("可发的码:", " ".join(free))
       -d "{\"code\":\"$code\"}" | python3 -m json.tool
     ;;
   *)
-    echo "用法: $0 {gen [n]|list|redeem CODE}"; exit 1
+    echo "用法: $0 {gen [n] [month|quarter|forever] | list | redeem CODE}"; exit 1
     ;;
 esac
