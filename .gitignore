@@ -10,4 +10,4 @@ node_modules
 
 # 兑换码发货台账（本地私有，勿提交）
 scripts/ledger.csv
-tools/redeem-codes/ledger.csv
+tools/voucher/ledger.csv

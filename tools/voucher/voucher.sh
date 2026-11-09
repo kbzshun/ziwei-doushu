@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# 兑换码发货工具（本地使用，别提交到公开仓库）
+# 兑换码（voucher）管理工具 — 本地使用，勿提交到公开仓库
 #
 # 用法：
-#   ./tools/redeem-codes/redeem-codes.sh gen 10 quarter   # 生成 10 个包季码
-#   ./tools/redeem-codes/redeem-codes.sh list             # 查看全部码与使用状态
-#   ./tools/redeem-codes/redeem-codes.sh redeem ZW-XXXXX  # 测试核销（会消耗一个码）
+#   ./tools/voucher/voucher.sh gen 10 quarter   # 生成 10 个包季码
+#   ./tools/voucher/voucher.sh list             # 查看全部码与使用状态
+#   ./tools/voucher/voucher.sh redeem ZW-XXXXX  # 测试核销（会消耗一个码）
 #
 # 首次使用：把下面的 ADMIN_TOKEN 换成你自己在 Netlify 里设置的值。
 set -euo pipefail
@@ -57,6 +57,6 @@ if free: print("可发的码:", " ".join(free))
       -d "{\"code\":\"$code\"}" | python3 -m json.tool
     ;;
   *)
-    echo "用法: $0 {gen [n] [month|quarter|forever] | list | redeem CODE}"; exit 1
+    echo "用法: $0 {gen [数量] [month|quarter|forever] | list | redeem 兑换码}"; exit 1
     ;;
 esac

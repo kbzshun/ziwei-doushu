@@ -1,4 +1,4 @@
-# 兑换码发货工具
+# 兑换码（Voucher）管理工具
 
 本地使用的兑换码管理脚本，用于给付款用户发放解锁码、查询使用状态、测试核销。
 **不要提交 `ledger.csv`**（已在 `.gitignore` 中忽略）。
@@ -37,7 +37,7 @@
 ### 1. 生成包月码
 
 ```bash
-./tools/redeem-codes/redeem-codes.sh gen 5 month
+./tools/voucher/voucher.sh gen 5 month
 ```
 
 输出：
@@ -46,7 +46,7 @@
 {"ok": true, "codes": ["ZW-3K9FA", "ZW-7M2QP", "ZW-B8XRT", "ZW-C4NVY", "ZW-D6HJU"]}
 ```
 
-同时自动写入 `tools/redeem-codes/ledger.csv`：
+同时自动写入 `tools/voucher/ledger.csv`：
 
 ```
 时间,套餐,兑换码,状态
@@ -56,13 +56,13 @@
 ### 2. 生成永久码
 
 ```bash
-./tools/redeem-codes/redeem-codes.sh gen 3 forever
+./tools/voucher/voucher.sh gen 3 forever
 ```
 
 ### 3. 查看所有码
 
 ```bash
-./tools/redeem-codes/redeem-codes.sh list
+./tools/voucher/voucher.sh list
 ```
 
 输出示例：
@@ -75,7 +75,7 @@
 ### 4. 测试核销
 
 ```bash
-./tools/redeem-codes/redeem-codes.sh redeem ZW-3K9FA
+./tools/voucher/voucher.sh redeem ZW-3K9FA
 ```
 
 输出：
