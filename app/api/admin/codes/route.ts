@@ -28,6 +28,15 @@ export async function POST(req: NextRequest) {
   }
   const body = (await req.json().catch(() => ({}))) as { count?: number; prefix?: string };
   const count = Math.min(Math.max(Number(body.count) || 1, 1), 100);
-  const codes = await createCodes(count, body.prefix?.toUpperCase() || 'ZW');
-  return NextResponse.json({ ok: true, codes });
+
+  try {
+    const codes = await createCodes(count, body.prefix?.toUpperCase() || 'ZW');
+    return NextResponse.json({ ok: true, codes });
+  } catch (e) {
+    const detail = e instanceof Error ? e.message : String(e);
+    return NextResponse.json(
+      { ok: false, error: '存储服务不可用，请检查 Upstash 配置', detail },
+      { status: 503 },
+    );
+  }
 }
