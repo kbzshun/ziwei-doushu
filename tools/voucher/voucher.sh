@@ -44,10 +44,19 @@ import sys, json
 d = json.load(sys.stdin)
 if "error" in d:
     print("错误:", d); raise SystemExit(1)
-free = [c["code"] for c in d["codes"] if not c["record"].get("used")]
-used = [c["code"] for c in d["codes"] if c["record"].get("used")]
-print(f"可用 {len(free)} 个 / 已用 {len(used)} 个")
-if free: print("可发的码:", " ".join(free))
+names = {"month": "包月", "quarter": "包季", "forever": "永久"}
+rows = d["codes"]
+free = [c for c in rows if not c["record"].get("used")]
+print(f"共 {len(rows)} 个：可用 {len(free)} / 已用 {len(rows) - len(free)}")
+print(f"{\"兑换码\":<12}{\"套餐\":<6}{\"状态\":<6}生成/使用时间")
+for c in rows:
+    r = c["record"]
+    plan = names.get(r.get("plan") or "quarter", "包季")
+    state = "已用" if r.get("used") else "可用"
+    ts = r.get("usedAt") or r.get("createdAt") or 0
+    import datetime
+    when = datetime.datetime.fromtimestamp(ts / 1000).strftime("%m-%d %H:%M") if ts else "-"
+    print(f"{c[\"code\"]:<12}{plan:<6}{state:<6}{when}")
 '
     ;;
   bind)
