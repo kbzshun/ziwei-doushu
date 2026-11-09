@@ -62,6 +62,8 @@ export interface RedeemRecord {
   used: boolean;
   usedAt?: number;
   note?: string;
+  /** 套餐 id：month / quarter / forever，老码为空按季卡处理 */
+  plan?: string;
 }
 
 export async function getCode(code: string): Promise<RedeemRecord | null> {
@@ -75,11 +77,11 @@ export async function markCodeUsed(code: string): Promise<void> {
   await kvSet(`ziwei:code:${code.toUpperCase()}`, { used: true, usedAt: Date.now() });
 }
 
-export async function createCodes(count: number, prefix = 'ZW'): Promise<string[]> {
+export async function createCodes(count: number, prefix = 'ZW', plan = 'quarter'): Promise<string[]> {
   const made: string[] = [];
   for (let i = 0; i < count; i++) {
     const code = `${prefix}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
-    await kvSet(`ziwei:code:${code}`, { used: false });
+    await kvSet(`ziwei:code:${code}`, { used: false, plan });
     made.push(code);
   }
   return made;

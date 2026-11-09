@@ -16,3 +16,18 @@ export const PLANS: Plan[] = [
 ];
 
 export const FREE_DAILY_LIMIT = 10;
+
+/** 兑换码解锁时长（天）：永久按 10 年计 */
+export const PLAN_DAYS: Record<string, number> = {
+  month: 30,
+  quarter: 90,
+  forever: 3650,
+};
+
+export function planById(id?: string | null): Plan | undefined {
+  return PLANS.find(p => p.id === id);
+}
+
+export function planDays(id?: string | null): number {
+  return PLAN_DAYS[id ?? ''] ?? PLAN_DAYS.quarter;
+}

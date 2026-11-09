@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { REDEEM_COOKIE, createRedeemToken } from '@/lib/auth';
 import { getCode, markCodeUsed, kvEnabled } from '@/lib/store';
+import { planDays, planById } from '@/lib/plans';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,12 +38,14 @@ export async function POST(req: NextRequest) {
 
   await markCodeUsed(code);
 
-  const res = NextResponse.json({ ok: true, kv: kvEnabled });
+  const planId = record.plan ?? 'quarter';
+  const days = planDays(planId);
+  const res = NextResponse.json({ ok: true, kv: kvEnabled, plan: planId, days, planName: planById(planId)?.name ?? '包季' });
   res.cookies.set(REDEEM_COOKIE, createRedeemToken(code), {
     httpOnly: true,
     sameSite: 'lax',
     path: '/',
-    maxAge: 60 * 60 * 24 * 90,
+    maxAge: 60 * 60 * 24 * days,
     secure: new URL(req.url).protocol === 'https:',
   });
   return res;

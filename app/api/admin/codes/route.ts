@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createCodes, listCodes, kvEnabled } from '@/lib/store';
+import { planById } from '@/lib/plans';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,11 +27,12 @@ export async function POST(req: NextRequest) {
   if (!kvEnabled) {
     return NextResponse.json({ error: '未配置 Upstash Redis，无法生成兑换码' }, { status: 400 });
   }
-  const body = (await req.json().catch(() => ({}))) as { count?: number; prefix?: string };
+  const body = (await req.json().catch(() => ({}))) as { count?: number; prefix?: string; plan?: string };
   const count = Math.min(Math.max(Number(body.count) || 1, 1), 100);
 
   try {
-    const codes = await createCodes(count, body.prefix?.toUpperCase() || 'ZW');
+    const plan = planById(body.plan) ? body.plan! : 'quarter';
+    const codes = await createCodes(count, body.prefix?.toUpperCase() || 'ZW', plan);
     return NextResponse.json({ ok: true, codes });
   } catch (e) {
     const detail = e instanceof Error ? e.message : String(e);
