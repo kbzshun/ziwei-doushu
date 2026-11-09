@@ -17,10 +17,24 @@ cmd="${1:-list}"
 case "$cmd" in
   gen)
     n="${2:-1}"
-    curl -sS -X POST "$BASE_URL/api/admin/codes" \
+    plan="${3:-quarter}"   # month | quarter | forever
+    out=$(curl -sS -X POST "$BASE_URL/api/admin/codes" \
       -H "Authorization: Bearer $ADMIN_TOKEN" \
       -H 'Content-Type: application/json' \
-      -d "{\"count\":$n}" | python3 -m json.tool
+      -d "{\"count\":$n,\"plan\":\"$plan\"}")
+    echo "$out" | python3 -m json.tool
+    # 记账：scripts/ledger.csv
+    echo "$out" | python3 -c "
+import sys, json, datetime, os
+d = json.load(sys.stdin)
+path = os.path.join(os.path.dirname('$0') or '.', 'ledger.csv')
+new = not os.path.exists(path)
+with open(path, 'a', encoding='utf-8') as f:
+    if new: f.write('时间,套餐,兑换码,状态\n')
+    for c in d.get('codes', []):
+        f.write(f'{datetime.datetime.now():%Y-%m-%d %H:%M},{sys.argv[1]},{c},未发出\n')
+print('已记账 ->', path)
+" "$plan"
     ;;
   list)
     curl -sS "$BASE_URL/api/admin/codes" \
