@@ -86,6 +86,55 @@
 
 > ⚠️ 核销后这个码就作废了，**别拿要卖给用户的码来测**。建议先生成一个专门测试用的码。
 
+## 完整操作流程（生成 → 绑定 → 查看）
+
+假设用户付款时在备注里写了订单号 `ZW-TEST1`，买的是包月。
+
+```bash
+# ① 生成 1 个包月码（码前缀 ZWM 表示包月）
+./tools/voucher/voucher.sh gen 1 month
+# → {"ok":true,"codes":["ZWM-BZXUB"]}
+
+# ② 把「订单号 → 兑换码」绑定，用户即可自助领取
+./tools/voucher/voucher.sh bind ZW-TEST1 ZWM-BZXUB
+# → {"ok":true,"order":"ZW-TEST1","code":"ZWM-BZXUB"}
+
+# ③ 查看全部码：套餐、状态、使用时间一目了然
+./tools/voucher/voucher.sh list
+# → 共 3 个：可用 2 / 已用 1
+#   兑换码        套餐  状态  时间
+#   ZWM-BZXUB     包月  可用  -
+#   ZWQ-UREJ4     包季  已用  11-09 16:20
+
+# ④ （可选）核销测试：确认这个码能正常兑换，注意会消耗掉它
+./tools/voucher/voucher.sh redeem ZWM-BZXUB
+# → {"ok":true,"kv":true,"plan":"month","days":30,"planName":"包月"}
+```
+
+然后告诉用户：
+
+> 打开 `https://你的域名/claim`，输入订单号 `ZW-TEST1`，页面会直接显示兑换码；
+> 回排盘页点付费功能，输入该码即可解锁。
+
+### 套餐前缀对照
+
+| 套餐 | 前缀 | 示例 |
+| --- | --- | --- |
+| 包月 ¥9.9 | `ZWM` | `ZWM-BZXUB` |
+| 包季 ¥19.9 | `ZWQ` | `ZWQ-UREJ4` |
+| 永久 ¥39.9 | `ZWF` | `ZWF-X7K2P` |
+
+> 部署前生成的老码是 `ZW-` 开头，没有套餐标识，按包季处理。
+
+### 各命令一句话
+
+| 命令 | 一句话 |
+| --- | --- |
+| `gen <数量> <套餐>` | 生成码，写台账 |
+| `bind <订单号> <兑换码>` | 让用户能凭订单号自助取码 |
+| `list` | 看哪些码还没发、属于什么套餐 |
+| `redeem <兑换码>` | 测一次核销（会消耗该码） |
+
 ## 套餐与解锁时长
 
 | 套餐 id | 价格 | 解锁时长 |
