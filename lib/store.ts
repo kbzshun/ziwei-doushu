@@ -145,3 +145,21 @@ export async function deleteAllCodes(): Promise<number> {
   for (const k of keys as string[]) await kvDel(k);
   return keys.length;
 }
+
+/** 吊销线：签发时间早于该毫秒时间戳的兑换凭证一律失效（0 表示未启用） */
+const REVOKE_KEY = 'ziwei:revoke:before';
+
+export async function getRevokeCutoff(): Promise<number> {
+  if (!kvEnabled) return 0;
+  try {
+    const v = await kvGet<number>(REVOKE_KEY);
+    return typeof v === 'number' ? v : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export async function setRevokeCutoff(ts: number): Promise<void> {
+  if (!kvEnabled) throw new Error('存储未配置，无法吊销');
+  await kvSet(REVOKE_KEY, ts);
+}

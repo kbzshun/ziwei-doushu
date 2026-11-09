@@ -4,7 +4,7 @@
  * 响应: SSE，data: {"delta":{"text":"..."}} ... data: [DONE]
  */
 import { NextRequest } from 'next/server';
-import { SESSION_COOKIE, REDEEM_COOKIE, readSession, readRedeemToken, isProUser } from '@/lib/auth';
+import { SESSION_COOKIE, REDEEM_COOKIE, readSession, readActiveRedeem, isProUser } from '@/lib/auth';
 import { isFreeKey } from '@/lib/entitlements';
 import { clientIp, consumeUsage } from '@/lib/usage';
 import { streamChatToProjectSSE, ChatMessage } from '@/lib/ai/llm';
@@ -39,14 +39,14 @@ export async function POST(req: NextRequest) {
   // 服务端权限校验：免费主题放行，其余必须是已登录的专业版用户
   if (feature && !isFreeKey(feature)) {
     const user = readSession(req.cookies.get(SESSION_COOKIE)?.value);
-    const redeem = readRedeemToken(req.cookies.get(REDEEM_COOKIE)?.value);
+    const redeem = await readActiveRedeem(req.cookies.get(REDEEM_COOKIE)?.value);
     if (!isProUser(user?.login) && !redeem) {
       return Response.json({ error: 'pro-required' }, { status: 403 });
     }
   } else {
     // 免费功能：限流（专业版不限）
     const user = readSession(req.cookies.get(SESSION_COOKIE)?.value);
-    const redeem = readRedeemToken(req.cookies.get(REDEEM_COOKIE)?.value);
+    const redeem = await readActiveRedeem(req.cookies.get(REDEEM_COOKIE)?.value);
     if (!isProUser(user?.login) && !redeem) {
       const quota = await consumeUsage(clientIp(req.headers));
       if (quota.exceeded) {

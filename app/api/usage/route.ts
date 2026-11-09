@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { SESSION_COOKIE, REDEEM_COOKIE, readSession, readRedeemToken, isProUser } from '@/lib/auth';
+import { SESSION_COOKIE, REDEEM_COOKIE, readSession, readActiveRedeem, isProUser } from '@/lib/auth';
 import { clientIp, readUsage } from '@/lib/usage';
 import { PLANS } from '@/lib/plans';
 
@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 /** 当前额度与套餐状态 */
 export async function GET(req: NextRequest) {
   const user = readSession(req.cookies.get(SESSION_COOKIE)?.value);
-  const redeem = readRedeemToken(req.cookies.get(REDEEM_COOKIE)?.value);
+  const redeem = await readActiveRedeem(req.cookies.get(REDEEM_COOKIE)?.value);
   const pro = isProUser(user?.login) || !!redeem;
   const usage = pro
     ? { used: 0, limit: 0, remaining: 0 }

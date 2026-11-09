@@ -5,6 +5,7 @@
  * 说明：真实收费应改为查询订阅表/支付回调，这里先做成可用的最小闭环。
  */
 import crypto from 'crypto';
+import { getRevokeCutoff } from './store';
 
 export const SESSION_COOKIE = 'ziwei_session';
 
@@ -70,4 +71,19 @@ export function readRedeemToken(token?: string | null): { code: string; iat: num
   } catch {
     return null;
   }
+}
+
+/**
+ * 读取并校验兑换凭证。
+ * 除签名校验外，还会对照 KV 里的吊销线：签发时间早于吊销线的凭证视为已停用，
+ * 因此「停用历史订单」只需移动吊销线，无需改动已发给用户的 cookie。
+ */
+export async function readActiveRedeem(
+  token?: string | null,
+): Promise<{ code: string; iat: number; plan?: string; days?: number } | null> {
+  const redeem = readRedeemToken(token);
+  if (!redeem) return null;
+  const cutoff = await getRevokeCutoff();
+  if (cutoff && redeem.iat < cutoff) return null;
+  return redeem;
 }

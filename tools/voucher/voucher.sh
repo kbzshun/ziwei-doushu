@@ -140,7 +140,20 @@ for c in rows:
       -H 'Content-Type: application/json' -d "$body" | python3 -m json.tool
     echo "订单号历史仍保留在 tools/voucher/orders.csv"
     ;;
+  revoke)
+    # 停用历史订单：把吊销线推到当前时间，此前发出的兑换凭证全部失效
+    at="${2:-}"
+    if [ -n "$at" ]; then body="{\"at\":$at}"; else body='{}'; fi
+    curl -sS -X POST "$BASE_URL/api/admin/revoke" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" \
+      -H 'Content-Type: application/json' -d "$body" | python3 -m json.tool
+    echo "此前兑换的凭证已全部失效；受影响用户需使用新的兑换码"
+    ;;
+  revoke-status)
+    curl -sS "$BASE_URL/api/admin/revoke" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" | python3 -m json.tool
+    ;;
   *)
-    echo "用法: $0 {gen [数量] [month|quarter|forever] | list | bind 订单号 兑换码 | redeem 兑换码 | purge-used [--yes] | del 兑换码 | clean}"; exit 1
+    echo "用法: $0 {gen [数量] [month|quarter|forever] | list | bind 订单号 兑换码 | redeem 兑换码 | purge-used [--yes] | revoke [时间戳] | revoke-status | del 兑换码 | clean}"; exit 1
     ;;
 esac
