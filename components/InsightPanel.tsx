@@ -986,6 +986,9 @@ export default function InsightPanel({ insight, chart, onExport, onReset, export
             {codeMsg && (
               <p className="mb-2 text-[10px]" style={{ color: 'var(--ji)' }}>{codeMsg}</p>
             )}
+            <div className="mb-2 text-center text-[10px]" style={{ color: 'var(--tx-3)' }}>
+              <a href="/pricing" className="underline">查看套餐详情</a> · <a href="/claim" className="underline">已付款，去领取兑换码</a>
+            </div>
             <div className="flex gap-2">
               <button type="button" className="btn-accent flex-1 !py-2 !text-[12px]"
                 disabled={codeBusy} onClick={submitCode}>

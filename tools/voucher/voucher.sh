@@ -50,6 +50,15 @@ print(f"可用 {len(free)} 个 / 已用 {len(used)} 个")
 if free: print("可发的码:", " ".join(free))
 '
     ;;
+  bind)
+    order="${2:?用法: ./voucher.sh bind 订单号 ZW-XXXX}"
+    code="${3:?用法: ./voucher.sh bind 订单号 ZW-XXXX}"
+    curl -sS -X POST "$BASE_URL/api/admin/claim" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" \
+      -H 'Content-Type: application/json' \
+      -d "{\"order\":\"$order\",\"code\":\"$code\"}" | python3 -m json.tool
+    echo "已绑定：用户访问 $BASE_URL/claim 输入 $order 即可取码"
+    ;;
   redeem)
     code="${2:?用法: ./scripts/codes.sh redeem ZW-XXXXX}"
     curl -sS -X POST "$BASE_URL/api/redeem" \
