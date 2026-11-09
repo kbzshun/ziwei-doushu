@@ -361,11 +361,21 @@ export function useInsight(
 
   const runStream = useCallback(async (key: string, apiMessages: InsightTurn[]) => {
     try {
-      const res = await fetch('/api/interpret', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chart: chartRef.current, messages: apiMessages, feature: key }),
-      });
+      const send = (withFeature: boolean) =>
+        fetch('/api/interpret', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chart: chartRef.current,
+            messages: apiMessages,
+            ...(withFeature ? { feature: key } : {}),
+          }),
+        });
+
+      let res = await send(true);
+      // 兜底：免费主题被服务端误判为付费（旧缓存前端、key 不一致等），
+      // 去掉 feature 再请求一次，服务端按免费主题处理并计入每日限额。
+      if ((res.status === 403 || res.status === 401) && isFreeKey(key)) res = await send(false);
       if (res.status === 404) throw new Error('api-missing');
       if (res.status === 401) throw new Error('login-required');
       if (res.status === 403) throw new Error('pro-required');
