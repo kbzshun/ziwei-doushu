@@ -26,7 +26,53 @@ resolve_code() {
   local a="$1"
   case "$a" in
     ZW*) printf '%s' "$a" ;;
-    *)
+    stats)
+    days="${2:-7}"
+    recent="${3:-20}"
+    curl -sS "$BASE_URL/api/admin/stats?days=$days&recent=$recent" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" | python3 -c '
+import sys, json, datetime
+d = json.load(sys.stdin)
+if not d.get("ok"):
+    print("错误:", d); raise SystemExit(1)
+print("%-12s %7s %7s" % ("日期", "PV", "UV"))
+for x in d["days"]:
+    print("%-12s %7d %7d" % (x["day"], x["pv"], x["uv"]))
+print("-" * 28)
+print("合计 PV %d ｜ 日均 UV %d" % (d["totalPv"], d["avgUv"]))
+t = d.get("today") or {}
+if t.get("topPaths"):
+    print()
+    print("今日热门页面：")
+    for p in t["topPaths"]:
+        print("  %-26s %d" % (p["path"], p["count"]))
+if d.get("recent"):
+    print()
+    print("最近访问（%s）：" % d["recentDay"])
+    for v in d["recent"]:
+        ts = datetime.datetime.fromtimestamp(v["t"] / 1000).strftime("%m-%d %H:%M")
+        print("  %s  %-20s %s" % (ts, v.get("ip", "-"), v.get("path", "-")))
+'
+    ;;
+  ips)
+    limit="${2:-50}"
+    day="${3:-}"
+    qs="?days=1&recent=$limit"
+    if [ -n "$day" ]; then qs="$qs&day=$day"; fi
+    curl -sS "$BASE_URL/api/admin/stats$qs" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" | python3 -c '
+import sys, json, datetime
+d = json.load(sys.stdin)
+if not d.get("ok"):
+    print("错误:", d); raise SystemExit(1)
+t = d.get("today") or {}
+print("日期 %s ｜ PV %d ｜ UV %d" % (d["recentDay"], t.get("pv", 0), t.get("uv", 0)))
+for v in d["recent"]:
+    ts = datetime.datetime.fromtimestamp(v["t"] / 1000).strftime("%m-%d %H:%M:%S")
+    print("  %s  %-20s %s" % (ts, v.get("ip", "-"), v.get("path", "-")))
+'
+    ;;
+  *)
       python3 -c 'import csv, os, sys
 p = os.path.join(os.path.dirname(os.path.abspath(sys.argv[1])), "orders.csv")
 want = sys.argv[2].strip().lower()
@@ -197,6 +243,6 @@ for c in rows:
     fi
     ;;
   *)
-    echo "用法: $0 {gen [数量] [month|quarter|forever] | list | bind 订单号 兑换码 | redeem 兑换码 | purge-used [--yes] | revoke [兑换码/订单号] | restore 兑换码/订单号 | revoke-status [Code] | del 兑换码 | clean}"; exit 1
+    echo "用法: $0 {gen [数量] [month|quarter|forever] | list | bind 订单号 兑换码 | redeem 兑换码 | purge-used [--yes] | revoke [兑换码/订单号] | restore 兑换码/订单号 | revoke-status [Code] | stats [天数] | ips [条数] [日期] | del 兑换码 | clean}"; exit 1
     ;;
 esac

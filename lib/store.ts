@@ -34,6 +34,15 @@ async function cmd(args: (string | number)[]): Promise<unknown> {
   return json.result ?? null;
 }
 
+/**
+ * 原始 Redis 命令出口（统计功能需要 INCR / PFADD / ZINCRBY 等）
+ * 未配置 Upstash 时返回 null，调用方需自行容错。
+ */
+export async function kvRaw<T = unknown>(args: (string | number)[]): Promise<T | null> {
+  if (!kvEnabled) return null;
+  return (await cmd(args)) as T | null;
+}
+
 export async function kvGet<T>(key: string): Promise<T | null> {
   const raw = await cmd(['GET', key]);
   if (typeof raw !== 'string') return null;
