@@ -995,7 +995,7 @@ export default function InsightPanel({ insight, chart, onExport, onReset, export
               免费可查看：排盘、命格总览、财运、事业、性格、健康。
             </p>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/redeem-qr.png" alt="微信收款码"
+            <img src="/redeem-qr-v2.png" alt="微信收款码"
               className="mx-auto mb-3 w-44 rounded-lg"
               style={{ border: '1px solid var(--bdr)' }} />
             <div className="mb-2 space-y-1 text-[11px]" style={{ color: 'var(--tx-2)' }}>

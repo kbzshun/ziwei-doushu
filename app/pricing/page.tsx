@@ -55,7 +55,7 @@ export default function PricingPage() {
         </ol>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/redeem-qr.png"
+          src="/redeem-qr-v2.png"
           alt="微信收款码"
           className="mx-auto mt-5 w-44 rounded-lg"
           style={{ border: '1px solid var(--bdr)' }}
