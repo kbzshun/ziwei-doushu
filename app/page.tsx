@@ -1076,6 +1076,17 @@ export default function HomePage() {
             本平台基于中国传统文化研究，仅提供学习参考。<br className="sm:hidden" />
             不构成任何医疗、投资、法律或重大决策建议。
           </p>
+
+          {/* 数据来源标注（数据集授权要求，勿删除） */}
+          <p className="text-[10px] tracking-wider mb-3 max-w-2xl mx-auto leading-relaxed"
+            style={{ color: c.footerText, opacity: 0.85 }}>
+            排盘样本数据来源：
+            <a href="https://github.com/Renhuai123/ziwei-doushu" target="_blank" rel="noopener noreferrer"
+              style={{ color: c.footerText, textDecoration: 'underline' }}>
+              紫微斗数开源样本数据集 v3.0（518,400 条）
+            </a>
+            {' '}· 作者：王多鱼AI · CC BY 4.0
+          </p>
           <p className="text-[10px] tracking-wider" style={{ color: c.footerText }}>
             <a href="/terms" style={{ color: c.footerText, textDecoration: 'underline' }}>服务条款</a>
             {' · '}

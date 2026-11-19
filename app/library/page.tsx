@@ -89,7 +89,13 @@ export default function LibraryHomePage() {
           <div className="text-[12px] max-w-[600px] mx-auto" style={{ color: 'var(--tx-2)', lineHeight: 1.8 }}>
             所收录古籍均为公版（明代刊本）。<br />
             内容持续完善，未来将补全《紫微斗数全集》全本与倪海厦《天纪》引证目录。<br />
-            如发现任何错误请联系我们。
+            如发现任何错误请联系我们。<br /><br />
+            排盘样本数据来自{' '}
+            <a href="https://github.com/Renhuai123/ziwei-doushu" target="_blank" rel="noopener noreferrer"
+              style={{ color: 'var(--ac)', textDecoration: 'underline' }}>
+              紫微斗数开源样本数据集 v3.0（518,400 条）
+            </a>
+            ，作者：王多鱼AI，以 CC BY 4.0 授权使用。
           </div>
         </div>
       </main>

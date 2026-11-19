@@ -246,6 +246,12 @@ export default async function KnowledgePage({ params }: { params: Promise<{ star
       <footer className="container-page py-6 text-center text-[11px]" style={{ borderTop: '1px solid var(--bdr)', color: 'var(--tx-3)', letterSpacing: '0.1em' }}>
         <div style={{ marginBottom: '6px' }}>紫微研究 · 基于倪海厦正宗体系 · 仅供学习参考</div>
         <div style={{ opacity: 0.85 }}>本平台不构成任何医疗、投资、法律或重大决策建议</div>
+        <div style={{ opacity: 0.85 }}>
+          排盘样本数据来源：
+          <a href="https://github.com/Renhuai123/ziwei-doushu" target="_blank" rel="noopener noreferrer"
+            style={{ textDecoration: 'underline' }}>紫微斗数开源样本数据集 v3.0（518,400 条）</a>
+          {' '}· 作者：王多鱼AI · CC BY 4.0
+        </div>
       </footer>
     </div>
   );
