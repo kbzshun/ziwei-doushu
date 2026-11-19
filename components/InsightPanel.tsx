@@ -69,6 +69,8 @@ export interface InsightApi {
   /** 被拦截的付费功能 key，非空时前端显示升级弹层 */
   upsellKey: string | null;
   dismissUpsell: () => void;
+  /** 主动弹出升级层（用于锁定标签点击） */
+  requestUpgrade: (key: string) => void;
   /** 重新拉取身份与套餐（核销成功后调用，避免整页刷新丢失命盘） */
   refreshEntitlements: () => Promise<void>;
 }
@@ -83,6 +85,17 @@ const TOPICS = [
 ] as const;
 
 export const TOPIC_KEYS: string[] = TOPICS.map(t => t.key);
+
+/** 锁图标（付费功能标识），不引入图标库 */
+function LockIcon({ size = 9 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="4" y="10" width="16" height="10" rx="2" />
+      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+    </svg>
+  );
+}
 
 /** 宫位主题：命宫/财帛/官禄/夫妻/疾厄已由上面 6 个主题覆盖，不重复列出 */
 const PALACE_TABS: { name: string; label: string }[] = [
@@ -318,8 +331,8 @@ export function useInsight(
         pro?: boolean; used?: number; limit?: number; remaining?: number;
         planName?: string | null; expiresAt?: number | null;
       };
+      setQuota({ used: d.used ?? 0, limit: d.limit ?? 0, remaining: d.remaining ?? 0 });
       if (!d.pro) {
-        setQuota({ used: d.used ?? 0, limit: d.limit ?? 0, remaining: d.remaining ?? 0 });
         setPlanInfo(null);
       } else if (d.planName) {
         const exp = d.expiresAt ? new Date(d.expiresAt).toLocaleDateString('zh-CN') : '';
@@ -441,7 +454,9 @@ export function useInsight(
           : msg === 'pro-required'
             ? '该功能属于专业版，请输入兑换码解锁。'
             : msg === 'limit-reached'
-              ? '今日免费解读次数已用完，升级套餐后不限次数。'
+              ? '今日免费解读次数已用完（每天 5 次），升级套餐可提升到每天 50 次。'
+              : msg === 'pro-limit-reached'
+                ? '今日解读次数已用完（专业版每天 50 次），明日 0 点自动恢复。'
               : `解读失败：${msg}`;
       if (msg === 'limit-reached') setUpsellKey(key);
       finishSection(key, { loading: false, error: text }, text);
@@ -631,6 +646,7 @@ export function useInsight(
     planInfo,
     upsellKey,
     dismissUpsell: () => setUpsellKey(null),
+    requestUpgrade: (k: string) => setUpsellKey(k),
     refreshEntitlements,
   };
 }
@@ -647,7 +663,7 @@ interface InsightPanelProps {
 }
 
 export default function InsightPanel({ insight, chart, onExport, onReset, exportHint }: InsightPanelProps) {
-  const { sections, dynamicKeys, activeKey, active, openTopic, openPalace, setActiveKey, ask, retry, anyLoading, loadedCount, quota, planInfo, upsellKey, dismissUpsell, refreshEntitlements } = insight;
+  const { sections, dynamicKeys, activeKey, active, openTopic, openPalace, setActiveKey, ask, retry, anyLoading, loadedCount, quota, planInfo, upsellKey, dismissUpsell, refreshEntitlements, pro, requestUpgrade } = insight;
   const [input, setInput] = useState('');
   const [mode, setMode] = useState<'analysis' | 'chat'>('analysis');
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -834,20 +850,28 @@ export default function InsightPanel({ insight, chart, onExport, onReset, export
               const isActive = !!key && activeKey === key;
               const sec = key ? sections[key] : undefined;
               const done = !!sec && sec.messages.some(m => m.role === 'assistant' && m.content) && !sec.loading;
+              const locked = !pro;   // 宫位主题全部属于专业版
               return (
                 <button
                   key={tab.name}
                   type="button"
                   disabled={!palace}
-                  onClick={() => palace && openPalace(palace)}
-                  className="relative rounded-full px-2.5 py-1 text-[10px] transition-colors disabled:opacity-40"
-                  style={{
-                    background: isActive ? 'var(--ac-bg)' : 'var(--glass-bg-2)',
-                    border: `1px solid ${isActive ? 'var(--ac-bdr)' : 'var(--bdr)'}`,
-                    color: isActive ? 'var(--ac)' : done ? 'var(--tx-2)' : 'var(--tx-3)',
+                  onClick={() => {
+                    if (!palace) return;
+                    if (locked) requestUpgrade(key || 'palace');
+                    else openPalace(palace);
                   }}
+                  className="relative inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] transition-colors disabled:opacity-40"
+                  style={{
+                    background: isActive ? 'var(--ac-bg)' : locked ? 'transparent' : 'var(--glass-bg-2)',
+                    border: `1px solid ${isActive ? 'var(--ac-bdr)' : 'var(--bdr)'}`,
+                    color: isActive ? 'var(--ac)' : locked ? 'var(--tx-3)' : done ? 'var(--tx-2)' : 'var(--tx-3)',
+                    opacity: locked ? 0.55 : 1,
+                  }}
+                  title={locked ? '宫位解读为专业版功能' : undefined}
                 >
                   {tab.label}
+                  {locked && <LockIcon />}
                   {sec?.loading && (
                     <span className="absolute right-0.5 top-0.5 h-1 w-1 animate-pulse rounded-full" style={{ background: 'var(--ac)' }} />
                   )}

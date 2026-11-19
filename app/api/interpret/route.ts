@@ -36,26 +36,26 @@ export async function POST(req: NextRequest) {
 
   const { chart, messages, feature } = body;
 
-  // 服务端权限校验：免费主题放行，其余必须是已登录的专业版用户
-  if (feature && !isFreeKey(feature)) {
-    const user = readSession(req.cookies.get(SESSION_COOKIE)?.value);
-    const redeem = await readActiveRedeem(req.cookies.get(REDEEM_COOKIE)?.value);
-    if (!isProUser(user?.login) && !redeem) {
-      return Response.json({ error: 'pro-required' }, { status: 403 });
-    }
-  } else {
-    // 免费功能：限流（专业版不限）
-    const user = readSession(req.cookies.get(SESSION_COOKIE)?.value);
-    const redeem = await readActiveRedeem(req.cookies.get(REDEEM_COOKIE)?.value);
-    if (!isProUser(user?.login) && !redeem) {
-      const quota = await consumeUsage(clientIp(req.headers));
-      if (quota.exceeded) {
-        return Response.json(
-          { error: 'limit-reached', used: quota.used, limit: quota.limit },
-          { status: 429 },
-        );
-      }
-    }
+  const user = readSession(req.cookies.get(SESSION_COOKIE)?.value);
+  const redeem = await readActiveRedeem(req.cookies.get(REDEEM_COOKIE)?.value);
+  const paid = isProUser(user?.login) || !!redeem;
+
+  // 付费功能：未付费直接拦
+  if (feature && !isFreeKey(feature) && !paid) {
+    return Response.json({ error: 'pro-required' }, { status: 403 });
+  }
+
+  // 免费 5 次/天，付费 50 次/天——付费也不能无限调用
+  const quota = await consumeUsage(clientIp(req.headers), paid ? 'pro' : 'free');
+  if (quota.exceeded) {
+    return Response.json(
+      {
+        error: paid ? 'pro-limit-reached' : 'limit-reached',
+        used: quota.used,
+        limit: quota.limit,
+      },
+      { status: 429 },
+    );
   }
   if (!chart) {
     return Response.json({ error: 'missing chart' }, { status: 400 });

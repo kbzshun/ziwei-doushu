@@ -195,9 +195,11 @@ function Row({
           onClick={onActivate}
           className="rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wider transition-colors"
           style={{
-            color: active ? color : 'var(--tx-2)',
+            color,
+            fontWeight: 700,
             background: active ? `color-mix(in srgb, ${color} 12%, transparent)` : 'transparent',
             border: `1px solid ${active ? `color-mix(in srgb, ${color} 40%, transparent)` : 'transparent'}`,
+            opacity: active ? 1 : 0.85,
           }}
           title={`切到${axis}`}
         >

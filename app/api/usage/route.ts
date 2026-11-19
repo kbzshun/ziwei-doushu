@@ -10,9 +10,7 @@ export async function GET(req: NextRequest) {
   const user = readSession(req.cookies.get(SESSION_COOKIE)?.value);
   const redeem = await readActiveRedeem(req.cookies.get(REDEEM_COOKIE)?.value);
   const pro = isProUser(user?.login) || !!redeem;
-  const usage = pro
-    ? { used: 0, limit: 0, remaining: 0 }
-    : await readUsage(clientIp(req.headers));
+  const usage = await readUsage(clientIp(req.headers), pro ? 'pro' : 'free');
 
   return NextResponse.json({
     pro,
@@ -22,7 +20,6 @@ export async function GET(req: NextRequest) {
     expiresAt: redeem ? redeem.iat + (redeem.days ?? 90) * 86400000 : null,
     login: user?.login ?? null,
     ...usage,
-    limit: pro ? 0 : usage.limit,
     plans: PLANS,
   });
 }

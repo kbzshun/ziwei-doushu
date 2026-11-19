@@ -15,7 +15,10 @@ export const PLANS: Plan[] = [
   { id: 'forever', name: '永久',  price: 39.9, period: '一次性', days: null, desc: '一次买断，长期可用，最划算', highlight: true },
 ];
 
-export const FREE_DAILY_LIMIT = 10;
+/** 免费用户每天可生成的 AI 解读次数 */
+export const FREE_DAILY_LIMIT = 5;
+/** 付费用户每天可生成的 AI 解读次数（防止无限调用） */
+export const PRO_DAILY_LIMIT = 50;
 
 /** 兑换码解锁时长（天）：永久按 10 年计 */
 export const PLAN_DAYS: Record<string, number> = {
