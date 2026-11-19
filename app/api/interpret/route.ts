@@ -68,13 +68,29 @@ export async function POST(req: NextRequest) {
       content: m.content,
     }));
 
+  // 输出模式：放在系统提示最前面，比塞在用户消息里更能约束模型
+  const MODE_RULES = paid
+    ? `【当前输出模式：专业深度｜用户已付费】
+1) 严格按用户消息里要求的**【小节名】**逐节输出，每节不少于 100 字，全文不少于 900 字。
+2) 每个结论都必须给出盘面依据：哪颗星、落哪个宫、庙旺利陷、哪一化、成什么格局。
+3) 术语第一次出现用一句白话解释；引用倪海厦体系观点时标注来源，无法确认出处就写「倪师体系通说」，严禁编造页码。
+4) 禁止绝对化断言与医疗/投资/法律结论；结尾单独一句「命理分析仅供参考，人生走向以个人选择与努力为准」。
+`
+    : `【当前输出模式：免费精简｜必须严格遵守】
+1) 全文不超过 300 字（含标点）。
+2) 只用 **【小节名】** 作标题，禁止使用 Markdown 的 #、##、### 标题，禁止项目符号列表。
+3) 只输出用户消息里要求的那些小节，不得自行增加「命格定性」「主星解读」「三方四正」「当前大限」等额外小节。
+4) 每节最多 2 句，结论先行；不解释术语、不引用古籍、不做推演、不写免责声明。
+`;
+
   const payload: ChatMessage[] = [
     {
       role: 'system',
-      content: SYSTEM_PROMPT + JSON.stringify(chart, null, 0),
+      content: MODE_RULES + '\n' + SYSTEM_PROMPT + JSON.stringify(chart, null, 0),
     },
     ...history,
   ];
 
-  return streamChatToProjectSSE(payload);
+  // 免费版同时兜底限制输出长度，避免模型无视字数约束
+  return streamChatToProjectSSE(payload, { maxTokens: paid ? 4000 : 600 });
 }

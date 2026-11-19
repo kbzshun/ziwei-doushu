@@ -81,7 +81,10 @@ function getProxyDispatcher(targetUrl: string): Dispatcher | undefined {
  * 调用上游 chat/completions(stream) 并转换为本项目的 SSE 格式。
  * 上游缺 Key / 报错时，流式返回一条可读的错误提示，前端能直接显示。
  */
-export async function streamChatToProjectSSE(messages: ChatMessage[]): Promise<Response> {
+export async function streamChatToProjectSSE(
+  messages: ChatMessage[],
+  opts: { maxTokens?: number } = {},
+): Promise<Response> {
   const { apiKey, baseUrl, model } = resolveProvider();
 
   const encoder = new TextEncoder();
@@ -119,7 +122,13 @@ export async function streamChatToProjectSSE(messages: ChatMessage[]): Promise<R
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({ model, messages, stream: true, temperature: 0.7 }),
+      body: JSON.stringify({
+        model,
+        messages,
+        stream: true,
+        temperature: 0.7,
+        ...(opts.maxTokens ? { max_tokens: opts.maxTokens } : {}),
+      }),
       dispatcher,
     })) as unknown as Response;
   } catch {
